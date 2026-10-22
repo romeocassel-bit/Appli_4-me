@@ -26,6 +26,8 @@ state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHist
 state.mathJourneyHistory=Array.isArray(stored?.mathJourneyHistory)?stored.mathJourneyHistory:[];
 state.mathJourneyProgress=stored?.mathJourneyProgress&&typeof stored.mathJourneyProgress==='object'?stored.mathJourneyProgress:{};
 state.mathJourney=stored?.mathJourney&&MathJourney.TOPICS.some(t=>t.id===stored.mathJourney.topicId)?stored.mathJourney:null;
+state.readingBookmarks=stored?.readingBookmarks&&typeof stored.readingBookmarks==='object'?stored.readingBookmarks:{};
+state.readerSettings=stored?.readerSettings&&typeof stored.readerSettings==='object'?stored.readerSettings:{size:'normal',theme:'clair'};
 const personalizationMigrated=PersonalizationEngine.hydrate(state,{conjugation:ConjugationEngine,practice:PracticeBank});
 state.practiceChallenge=stored?.practiceChallenge&&PracticeBank.TOPICS.some(t=>t.id===stored.practiceChallenge.topicId)?stored.practiceChallenge:null;
 state.challenge=stored?.challenge&&Array.isArray(stored.challenge.questions)&&ConjugationEngine.TOPICS.some(t=>t.id===stored.challenge.topicId)?stored.challenge:null;
@@ -47,7 +49,23 @@ function actionRow(){return saveError?'<p class="muted">La sauvegarde locale est
 function due(){return Engine.getDue(state,activeExercises)}
 function sessionStep(){return Engine.currentStep(state)}
 function openExercise(id,origin='libre',help=false){mathInput='';mathFeedback=null;mathMistakes=0;mathPrereq=null;mathShowChoices=false;activeId=id;dictationResult=null;dictationText='';source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
-function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render()}
+function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render();restoreReadingBookmark();}
+function restoreReadingBookmark(){
+ const i=Math.max(0,Number(state.readingBookmarks?.[readId]||0));
+ if(!i)return;
+ const paragraph=document.querySelector('[data-reading-paragraph="'+i+'"]');
+ if(paragraph)paragraph.scrollIntoView({block:'start',behavior:'instant'});
+}
+function saveReadingBookmark(){
+ if(route!=='texte'||!readId)return;
+ const paragraphs=[...document.querySelectorAll('[data-reading-paragraph]')];
+ if(!paragraphs.length)return;
+ const cutoff=Math.max(120,window.innerHeight*.36);
+ let index=0;
+ for(let i=0;i<paragraphs.length;i++)if(paragraphs[i].getBoundingClientRect().top<=cutoff)index=i;
+ if(state.readingBookmarks[readId]!==index){state.readingBookmarks[readId]=index;save()}
+}
+window.addEventListener('scroll',saveReadingBookmark,{passive:true});
 function goSessionStep(){
  const step=sessionStep();
  if(!step){route='accueil';render();return}
@@ -91,10 +109,28 @@ function library(){
 function reader(){
  const t=findReading(readId);if(!t)return library();
  const vocab=t.words||[{term:t.word,definition:t.definition}];
- const parts=t.text.split(new RegExp('('+vocab.map(v=>v.term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi'));
- const body=parts.map(p=>{const i=vocab.findIndex(w=>w.term.toLocaleLowerCase('fr')===p.toLocaleLowerCase('fr'));return i<0?esc(p):'<button class="word" data-action="define:'+t.id+':'+i+'">'+esc(p)+'</button>'}).join('');
- return head(t.genre,t.title,'Lis sans te presser. Touche un mot souligné pour voir son sens.')
- +card('<div class="reader">'+body+'</div><div id="wordbox" aria-live="polite"></div><div class="actions">'+btn('J’ai terminé','readDone:'+t.id)+btn(source==='session'?'Pause de séance':'Retour aux histoires',source==='session'?'nav:seance':'nav:lecture','outline')+'</div>');
+ const regex=new RegExp('('+vocab.map(v=>v.term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');
+ const paragraphs=t.text.split(/\\n\\s*\\n/);
+ function paragraph(text,i){
+  const parts=text.split(regex);
+  const content=parts.map(part=>{
+   const ix=vocab.findIndex(w=>w.term.toLocaleLowerCase('fr')===part.toLocaleLowerCase('fr'));
+   return ix<0?esc(part):'<button class="word" data-action="define:'+t.id+':'+ix+'">'+esc(part)+'</button>';
+  }).join('');
+  return '<p data-reading-paragraph="'+i+'">'+content+'</p>';
+ }
+ const size=state.readerSettings?.size==='grand'?'grand':'normal';
+ const theme=state.readerSettings?.theme==='doux'?'doux':'clair';
+ const bookmark=state.readingBookmarks?.[t.id]||0;
+ return head(t.genre,t.title,'Lis à ton rythme. Les mots soulignés peuvent être expliqués.')
+ +card('<div class="reading-toolbar"><span class="pill">Environ '+t.time+' min</span>'
+ +btn(size==='grand'?'Texte normal':'Agrandir le texte','readerSize','secondary')
+ +btn(theme==='doux'?'Fond clair':'Fond doux','readerTheme','secondary')+'</div>'
+ +(bookmark?'<p class="muted">Ton marque-page est au paragraphe '+(bookmark+1)+'.</p>':'')
+ +'<div class="reader reader--'+size+' reader--'+theme+'">'+paragraphs.map(paragraph).join('')+'</div>'
+ +'<div id="wordbox" aria-live="polite"></div><p class="muted">Ta position se sauvegarde automatiquement pendant la lecture.</p>'
+ +'<div class="actions">'+btn('J’ai terminé','readDone:'+t.id)
+ +btn('Reprendre plus tard',source==='session'?'nav:seance':'nav:lecture','outline')+'</div>');
 }
 function afterReading(id){
  const t=findReading(id);if(!t)return library();
@@ -483,6 +519,12 @@ function handle(raw){
  if(kind==='endSession'){lastSummary=Engine.endSession(state,{partial:true});save();route='fin';render();return}
  if(kind==='exercise'){openExercise(p.slice(1).join(':'));return}
  if(kind==='subject'){currentSubject=p.slice(1).join(':');route='matiere';render();return}
+ if(kind==='readerSize'||kind==='readerTheme'){
+  saveReadingBookmark();
+  if(kind==='readerSize')state.readerSettings.size=state.readerSettings.size==='grand'?'normal':'grand';
+  else state.readerSettings.theme=state.readerSettings.theme==='doux'?'clair':'doux';
+  save();render();restoreReadingBookmark();return;
+ }
  if(kind==='read'){openReading(id);return}
  if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
  if(kind==='readDone'){
