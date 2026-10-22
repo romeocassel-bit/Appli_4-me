@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - defis-conjugaison-v4
+      - defis-orthographe-maths-v5
   pull_request:
 jobs:
   verification:
@@ -17,6 +18,8 @@ jobs:
           node --check app.js
           node --check learning-engine.js
           node --check conjugation-engine.js
+          node --check practice-bank.js
+          node --check practice-engine.js
           node --check dictation-engine.js
           node --check orthography-data.js
           node --check readings.js
