@@ -47,3 +47,5 @@ button:focus-visible,.choice:focus-visible,.word:focus-visible,textarea:focus-vi
 .reader--doux{background:#f5f0e4;border-radius:15px;padding:15px;color:#292b38}
 .reader .word{line-height:inherit}
 @media(max-width:580px){.reader{font-size:17px}.reader--grand{font-size:20px}.reading-toolbar .btn{flex:1 1 128px}}
+
+.reference-entry{border-top:1px solid #e9e7ee;padding:12px 0}.reference-entry:first-of-type{border-top:0}.reference-entry p{margin:5px 0}.writing-checklist{padding:15px;margin-top:15px;background:#f7f6fb;border-radius:13px}.writing-checklist p{margin:7px 0}.writing-saved{white-space:pre-wrap;background:#f7f6fb;padding:15px;border-radius:12px}

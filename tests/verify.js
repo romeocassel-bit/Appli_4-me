@@ -170,4 +170,25 @@ for(const topic of journey.TOPICS)for(const level of journey.LEVELS){
  }
  assert.equal(journey.recordStage(st,challenge).successful,true);
 }
+const french=require('../french-paths.js');
+const frenchAudit=french.audit();
+assert.deepEqual(frenchAudit.errors,[]);
+assert.equal(frenchAudit.activities,72);
+for(const topic of french.TOPICS){
+ const st={frenchPathHistory:[]};
+ for(let variant=0;variant<4;variant++){
+  const path=french.create(st,topic.id);
+  assert.equal(path.variant,variant);
+  for(let step=0;step<2;step++){
+   const q=french.current(path);
+   assert.equal(french.select(path,q.answer).correct,true);
+   assert.equal(french.advance(path),true);
+  }
+  const q=french.current(path);
+  assert.equal(french.saveWriting(path,'Très court').valid,false);
+  assert.equal(french.saveWriting(path,q.example).valid,true);
+  assert.equal(french.advance(path),true);
+  assert.equal(french.record(st,path).completed,true);
+ }
+}
 console.log('V6 : personnalisation, migration, recommandations et 674 variantes vérifiées');

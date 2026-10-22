@@ -10,6 +10,7 @@ on:
       - parcours-maths-v9
       - conjugaison-saisie-v10
       - lecture-plaisir-v11
+      - francais-parcours-v12
   pull_request:
 jobs:
   verification:
@@ -29,6 +30,7 @@ jobs:
           node --check personalization-engine.js
           node --check math-coach.js
           node --check math-journey.js
+          node --check french-paths.js
           node --check dictation-engine.js
           node --check orthography-data.js
           node --check readings.js

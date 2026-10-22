@@ -78,6 +78,36 @@ async function run(){
    assert.equal(await page.locator('[data-action^="challengeAnswer:"]').count(),3);
    await page.locator('[data-nav="matieres"]').click();
    await page.locator('[data-action="subject:Français"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Comprendre et écrire'));
+   await page.locator('[data-action="exercise:fp-figures"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Observer, s’entraîner'));
+   await page.locator('[data-action="frenchStart:fp-figures"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('1. Comprendre'));
+   for(let n=0;n<2;n++){
+     const idx=n===0?1:0;
+     await page.locator('[data-action="frenchAnswer:'+idx+'"]').click();
+     assert.equal(await page.locator('[data-action="frenchNext"]').count(),1);
+     await page.locator('[data-action="frenchNext"]').click();
+   }
+   assert.equal(await page.locator('#french-writing').count(),1);
+   await page.locator('#french-writing').fill('Les étoiles brillent comme des éclats de verre. La nuit est un rideau de velours.');
+   await page.reload();
+   await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Français"]').click();
+   await page.locator('[data-action="exercise:fp-figures"]').click();
+   assert.ok((await page.locator('#french-writing').inputValue()).includes('Les étoiles'));
+   await page.locator('[data-action="frenchWrite"]').click();
+   await page.locator('[data-action="frenchNext"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Ton parcours est terminé'));
+   await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Français"]').click();
+   await page.locator('[data-action="frenchLexicon"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Comparaison'));
+   await page.locator('[data-action="subject:Français"]').click();
+   await page.locator('[data-action="frenchAuthors"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Victor Hugo'));
+   await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Français"]').click();
    await page.locator('[data-action="exercise:po-accord"]').click();
    await page.locator('[data-action="practiceStart:po-accord:5"]').click();
    assert.ok((await page.locator('.hero').innerText()).includes('Question 1 sur 5'));
