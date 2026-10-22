@@ -12,6 +12,8 @@ const exercises=[
 {id:'h2',subject:'Histoire-géo',topic:'Urbanisation',question:'Que signifie « urbanisation » ?',options:['Baisse du nombre de villes','Augmentation de la population urbaine','Disparition des transports'],answer:1,why:'L’urbanisation est l’augmentation de la part de population vivant en ville.',probe:'Le mot « urbain » concerne :',probeOptions:['la ville','la montagne'],probeAnswer:0}
 ];
 const readings=window.APP_READINGS||[];
+const orthography=window.ORTHOGRAPHY_DATA||{questions:[],dictations:[]};
+exercises.push(...orthography.questions,...orthography.dictations);
 let stored=null,legacy=null;
 try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
 try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
@@ -21,7 +23,7 @@ let saveError=false;
 if(!stored)save();
 const root=document.getElementById('app');
 let route='accueil',activeId=null,mode='question',currentSubject='Français',readId=null;
-let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false;
+let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false,dictationResult=null,dictationText='';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const card=(inner,extra='')=>'<section class="card '+extra+'">'+inner+'</section>';
 const head=(k,title,sub='')=>'<div class="hero"><div class="eyebrow">'+esc(k)+'</div><h1>'+esc(title)+'</h1><p class="muted">'+esc(sub)+'</p></div>';
@@ -31,7 +33,7 @@ function findReading(id){return readings.find(x=>x.id===id)}
 function actionRow(){return saveError?'<p class="muted">La sauvegarde locale est indisponible sur ce navigateur.</p>':''}
 function due(){return Engine.getDue(state,exercises)}
 function sessionStep(){return Engine.currentStep(state)}
-function openExercise(id,origin='libre',help=false){activeId=id;source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
+function openExercise(id,origin='libre',help=false){activeId=id;dictationResult=null;dictationText='';source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
 function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render()}
 function goSessionStep(){
  const step=sessionStep();
@@ -94,10 +96,39 @@ function subjectPage(){return head('Mes matières',currentSubject,'À toi de cho
  +exercises.filter(e=>e.subject===currentSubject).map(e=>card('<h2>'+esc(e.topic)+'</h2>'+btn('Essayer','exercise:'+e.id))).join('')}
 function exercise(){
  const e=findExercise(activeId);if(!e)return subjects();
+ if(e.type==='dictation')return dictationView(e);
  const probe=mode==='probe';
  return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
  +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
 }
+
+function dictationView(e){
+ const supported='speechSynthesis' in window;
+ return head('Français',e.topic,'Écoute la phrase, écris ce que tu entends, puis vérifie. Sans chronomètre.')
+ +card('<p class="muted">Tu peux réécouter autant de fois que nécessaire.</p><div class="actions">'+btn('Écouter la phrase','dictationListen:'+e.id,'secondary')+'</div>'
+ +(supported?'':'<p class="muted">La lecture audio n’est pas disponible sur ce navigateur. Tu peux demander à un adulte de lire la phrase.</p>')
+ +'<label for="dictation-input" class="field-label">Ma dictée</label><textarea id="dictation-input" rows="4" maxlength="1800" spellcheck="false" autocapitalize="off" placeholder="Écris ici la phrase entendue…"></textarea>'
+ +'<p id="dictation-hint" class="muted" aria-live="polite"></p><div class="actions">'+btn('Voir un indice','dictationHint:'+e.id,'secondary')+btn('Corriger ma dictée','dictationCheck')+'</div>');}
+function checkDictation(){
+ const e=findExercise(activeId),field=document.getElementById('dictation-input');
+ if(!e||e.type!=='dictation'||!field)return;
+ const input=field.value;
+ const result=DictationEngine.compare(e.text,input,e.rules||[]);
+ if(!result.valid){const hint=document.getElementById('dictation-hint');if(hint)hint.textContent=result.reason;return}
+ const previous=state.reviews[e.id]; 
+ const wasAssisted=questionHelped||Boolean(source==='session'&&state.activeSession?.assistedItems[e.id]);
+ const once=Boolean(previous&&previous.lastReviewed===Engine.localDay()&&state.history.some(h=>h.id===e.id&&h.at&&Engine.localDay(h.at)===Engine.localDay()));
+ if(!once){Engine.recordAttempt(state,e.id,{correct:result.correct,assisted:wasAssisted,source:source==='session'?'session':'libre',kind:'question'});}
+ if(!result.correct&&source==='session'&&state.activeSession)state.activeSession.assistedItems[e.id]=true;
+ save();
+ const details=result.errors.slice(0,12).map(e=>'<li><b>'+esc(e.expected||'Mot ajouté')+'</b> — '+esc(e.actual||'mot absent')+' : '+esc(e.explanation)+'</li>').join('');
+ root.innerHTML=head('Correction',result.correct?'Phrase retrouvée !':'Ce que nous allons retenir','Comparer les mots aide à repérer les accords et les homophones.')
+ +card('<h2>La phrase attendue</h2><p>'+esc(e.text)+'</p><p class="muted">La ponctuation et les majuscules ne sont pas notées.</p>'
+ +(result.correct?'<div class="feedback">Tu as retrouvé tous les mots.</div>':'<h2>Points à observer</h2><ul class="corrections">'+details+'</ul><p class="muted">Ces catégories sont indicatives : elles ne remplacent pas une analyse linguistique complète.</p>')
+ +'<div class="actions">'+btn(source==='session'?'Continuer la séance':'Retour aux matières','dictationNext')+'</div>');
+ root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
+}
+
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
  +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
@@ -116,7 +147,7 @@ function resultView(){
  const x=feedbackView;if(!x)return home();
  return head('On apprend',x.correct?'Bien vu !':'On continue à comprendre','Une erreur donne une information utile.')
  +card('<div class="feedback">'+esc(x.message)+'</div><div class="actions">'
- +(x.continue?btn('Continuer la séance','nextStep'):x.correct?btn('Choisir un autre défi','nav:matieres'):btn('Une aide pour comprendre','probe:'+x.id))
+ +(x.continue?btn('Continuer la séance','nextStep'):x.probing?btn('Revenir à la question','returnMain'):x.correct?btn('Choisir un autre défi','nav:matieres'):btn('Une aide pour comprendre','probe:'+x.id))
  +btn('Arrêter ici',x.continue?'endSession':'nav:accueil','outline')+'</div>');
 }
 function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as avancé à ton rythme.')
@@ -137,6 +168,7 @@ function finishCurrentStep(){
 }
 function submitAnswer(index){
  const e=findExercise(activeId);if(!e)return;
+ if(e.type==='dictation')return;
  const probing=mode==='probe',correct=index===(probing?e.probeAnswer:e.answer);
  const origin=source==='session'?'session':'libre';
  if(probing)questionHelped=true;
@@ -144,7 +176,7 @@ function submitAnswer(index){
  if(!correct && source==='session' && state.activeSession)state.activeSession.assistedItems[e.id]=true;
  save();
  feedbackView={id:e.id,correct,message:(correct?(questionHelped?'Tu as réussi avec un indice. ':'Tu as réussi seule. '):'Cette réponse ne convient pas encore. ')+e.why,
- continue:source==='session'&&correct,probing};
+ continue:source==='session'&&correct&&!probing,probing};
  route='resultat';render();
 }
 function handle(raw){
@@ -179,7 +211,12 @@ function handle(raw){
  const r=findReading(id),correct=Number(p[2])===r.answer;Engine.recordAttempt(state,id,{correct,kind:'reading',source:'libre'});save();
  root.innerHTML=head('Compréhension',correct?'Bien trouvé !':'Une occasion de relire')+card('<p>'+esc(correct?'Tu as retrouvé une information importante.':'Relis le passage qui raconte ce moment si tu en as envie.')+'</p>'+btn('Continuer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture'));root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));return;
  }
+ if(kind==='returnMain'){mode='question';route='exercice';render();return}
  if(kind==='answer'){submitAnswer(Number(id));return}
+ if(kind==='dictationListen'){const e=findExercise(id);if(e&&'speechSynthesis' in window){window.speechSynthesis.cancel();const msg=new SpeechSynthesisUtterance(e.text);msg.lang='fr-FR';msg.rate=0.85;window.speechSynthesis.speak(msg)}return}
+ if(kind==='dictationCheck'){checkDictation();return}
+ if(kind==='dictationHint'){const e=findExercise(id);if(e){questionHelped=true;const element=document.getElementById('dictation-hint');if(element)element.textContent=e.hint}return}
+ if(kind==='dictationNext'){if(source==='session')finishCurrentStep();else{route='matieres';render()}return}
  if(kind==='probe'){questionHelped=true;mode='probe';route='exercice';render();return}
 }
 document.querySelectorAll('[data-nav]').forEach(el=>el.addEventListener('click',()=>{route=el.dataset.nav;render()}));
