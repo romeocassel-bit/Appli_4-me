@@ -83,6 +83,21 @@ for(const topic of conjugation.TOPICS){
   assert.ok(c.questions.every(id=>conjugation.getQuestion(id).difficulty===level.difficulty));
  }
 }
+const writtenState={reviews:{},conjugationHistory:[]};
+const written=conjugation.create(writtenState,'ct:present',3,'libre',null,'decouverte');
+const firstWritten=conjugation.current(written);
+assert.equal(conjugation.submitWritten(written,'').valid,false);
+assert.equal(conjugation.submitWritten(written,'mauvaise').correct,false);
+assert.equal(conjugation.submitWritten(written,firstWritten.correctForm).correct,true);
+assert.equal(written.answers[0].assisted,true);
+assert.equal(conjugation.submitWritten(written,firstWritten.correctForm).valid,false);
+conjugation.advance(written);
+assert.equal(written.wrongTries,0);
+const nextWritten=conjugation.current(written);
+assert.equal(conjugation.submitWritten(written,nextWritten.correctForm.toUpperCase()).correct,true);
+assert.equal(written.answers[1].assisted,false);
+const composedWritten=conjugation.create(writtenState,'ct:passe',3,'libre',null,'decouverte');
+assert.equal(conjugation.submitWritten(composedWritten,conjugation.current(composedWritten).correctForm).correct,true);
 const adapted=conjugation.create({reviews:{'ct:present':{stage:3}},conjugationHistory:[]},'ct:present',5);
 assert.equal(adapted.questions.length,5);
 
