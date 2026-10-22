@@ -54,6 +54,15 @@ async function run(){
    await page.locator('[data-action="subject:Maths"]').click();
    await page.locator('[data-action="exercise:pm-pourcents"]').click();
    await page.locator('[data-action="practiceStart:pm-pourcents:3"]').click();
+   assert.equal(await page.locator('#math-input').count(),1);
+   await page.locator('#math-input').fill('invalide');
+   await page.locator('[data-action="mathCheck"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Utilise un nombre'));
+   await page.locator('[data-action="mathPrereq"]').click();
+   assert.equal(await page.locator('#math-prereq').count(),1);
+   await page.locator('[data-action="mathPrereqClose"]').click();
+   await page.locator('[data-action="mathShowChoices"]').click();
+   assert.equal(await page.locator('[data-action^="practiceAnswer:"]').count(),3);
    assert.ok((await page.locator('#app').innerText()).includes('Question 1 sur 3'));
    await page.locator('[data-nav="accueil"]').click();
    await page.locator('[data-action="start"]').click();

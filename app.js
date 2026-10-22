@@ -28,6 +28,7 @@ let saveError=false;
 if(!stored||personalizationMigrated)save();
 const root=document.getElementById('app');
 let route='accueil',activeId=null,mode='question',currentSubject='Français',readId=null;
+let mathInput='',mathFeedback=null,mathMistakes=0,mathPrereq=null,mathShowChoices=false;
 let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false,dictationResult=null,dictationText='';
 if(state.activeSession){route='accueil';}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -39,7 +40,7 @@ function findReading(id){return readings.find(x=>x.id===id)}
 function actionRow(){return saveError?'<p class="muted">La sauvegarde locale est indisponible sur ce navigateur.</p>':''}
 function due(){return Engine.getDue(state,exercises)}
 function sessionStep(){return Engine.currentStep(state)}
-function openExercise(id,origin='libre',help=false){activeId=id;dictationResult=null;dictationText='';source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
+function openExercise(id,origin='libre',help=false){mathInput='';mathFeedback=null;mathMistakes=0;mathPrereq=null;mathShowChoices=false;activeId=id;dictationResult=null;dictationText='';source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
 function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render()}
 function goSessionStep(){
  const step=sessionStep();
@@ -214,9 +215,11 @@ function practiceView(topic){
  const done=c.answers.find(x=>x.atIndex===c.cursor);
  return head(topic.subject,topic.topic,'Question '+(c.cursor+1)+' sur '+c.questions.length)
  +card('<span class="pill">'+(q.difficulty===1?'Découverte':q.difficulty===2?'Entraînement':'Approfondissement')+'</span><h2 style="margin-top:14px">'+esc(q.question)+'</h2>'
- +'<div class="choices">'+q.options.map((x,i)=>'<button class="choice" '+(done?'disabled ':'')+'data-action="practiceAnswer:'+i+'">'+esc(x)+'</button>').join('')+'</div>'
+ +(topic.subject==='Maths'&&!done&&!mathShowChoices?'<label class="field-label" for="math-input">Ma réponse (sans choisir parmi des propositions)</label><input id="math-input" type="text" inputmode="decimal" autocomplete="off" value="'+esc(mathInput)+'" placeholder="Ex. : −3, 25 ou 2/5"><div class="actions">'+btn('Vérifier','mathCheck')+btn('Voir les propositions','mathShowChoices','secondary')+'</div>':((topic.subject==='Maths'&&!mathShowChoices)?'':'<div class="choices">'+q.options.map((x,i)=>'<button class="choice" '+(done?'disabled ':'')+'data-action="practiceAnswer:'+i+'">'+esc(x)+'</button>').join('')+'</div>'))
+ +(mathPrereq&&!done&&topic.subject==='Maths'?'<div class="feedback"><b>Un rappel avant de continuer : '+esc(MathCoach.PATHS[topic.id]?.before||'Calcul de base')+'</b><p>'+esc(MathCoach.PATHS[topic.id]?.check||'')+'</p><label class="field-label" for="math-prereq">Ma réponse</label><input id="math-prereq" type="text" inputmode="decimal" autocomplete="off"><div class="actions">'+btn('Vérifier le rappel','mathPrereqCheck')+btn('Revenir au défi','mathPrereqClose','secondary')+'</div></div>':'')
+ +(mathFeedback&&!done&&topic.subject==='Maths'?'<div class="feedback">'+esc(mathFeedback)+'</div>':'')
  +(done?'<div class="feedback"><b>'+(done.correct?'Bonne réponse.':'Une notion à revoir.')+'</b> '+esc(q.explanation)+'</div><div class="actions">'+btn('Question suivante','practiceNext')+'</div>'
- :'<div class="actions">'+btn('Voir un indice','practiceHint','secondary')+btn('Faire une pause','nav:matieres','outline')+'</div>'
+ :'<div class="actions">'+btn('Voir un indice','practiceHint','secondary')+(topic.subject==='Maths'?btn('Revoir un prérequis','mathPrereq','outline')+btn('Passer','mathSkip','outline'):'')+btn('Faire une pause','nav:matieres','outline')+'</div>'
  +(c.hintShown?'<div class="feedback">'+esc(q.hint)+'</div>':'')));
 }
 function practiceEnd(){
@@ -247,17 +250,57 @@ function handlePractice(parts){
   if(!topic||topic.type!=='practice')return;
   let count=[3,5,8].includes(+parts[2])?+parts[2]:5;
   if(source==='session')count=3;
+  mathInput='';mathFeedback=null;mathMistakes=0;mathPrereq=null;mathShowChoices=false;
   state.practiceChallenge=PracticeEngine.create(state,topic.id,count,source,state.activeSession?.id||null);
   save();render();return;
  }
  const c=state.practiceChallenge;if(!c)return;
- if(action==='practiceHint'){c.hintShown=true;save();render();return}
- if(action==='practiceAnswer'){if(PracticeEngine.answer(c,+parts[1])){save();render()}return}
+ if(action==='practiceHint'){c.hintShown=true;if(topic?.subject==='Maths')mathFeedback=MathCoach.quickHint(PracticeEngine.current(c));save();render();return}
+ if(action==='practiceAnswer'){if(PracticeEngine.answer(c,+parts[1])){mathFeedback=null;mathInput='';mathMistakes=0;mathShowChoices=false;save();render()}return}
  if(action==='practiceNext'){
-  if(PracticeEngine.advance(c)){if(c.finished){finishPractice();route='practiceBilan'}save();render()}
+  if(PracticeEngine.advance(c)){mathFeedback=null;mathMistakes=0;mathInput='';mathPrereq=null;mathShowChoices=false;if(c.finished){finishPractice();route='practiceBilan'}save();render()}
   return;
  }
- if(action==='practiceReset'){const id=c.topicId;state.practiceChallenge=null;source='libre';activeId=id;route='exercice';save();render();return}
+ if(action==='practiceReset'){const id=c.topicId;mathInput='';mathFeedback=null;mathMistakes=0;mathPrereq=null;mathShowChoices=false;state.practiceChallenge=null;source='libre';activeId=id;route='exercice';save();render();return}
+}
+
+
+function handleMath(kind){
+ const c=state.practiceChallenge,q=PracticeEngine.current(c),topic=findExercise(c?.topicId);
+ if(!c||!q||topic?.subject!=='Maths'||c.answers.some(a=>a.atIndex===c.cursor))return;
+ const input=document.getElementById('math-input');
+ if(input)mathInput=input.value;
+ if(kind==='mathShowChoices'){c.hintShown=true;mathShowChoices=true;mathFeedback='Tu peux maintenant choisir parmi les propositions.';save();render();return}
+ if(kind==='mathCheck'){
+  const result=MathCoach.check(q,mathInput);
+  if(!result.valid){mathFeedback=result.reason;render();return}
+  if(result.correct){
+   if(PracticeEngine.answer(c,q.answer)){const recorded=c.answers[c.answers.length-1];recorded.mode='saisie';recorded.assisted=Boolean(c.hintShown||mathMistakes>0);save();render()}
+   return;
+  }
+  mathMistakes++;
+  c.hintShown=true;
+  const help=mathMistakes>=2?MathCoach.workedExample(q):MathCoach.quickHint(q);
+  mathFeedback=(result.reason||'Réessaie.')+' '+help;
+  if(mathMistakes>=3){mathShowChoices=true;mathFeedback+=' Tu peux choisir parmi les propositions ou passer à une autre question.'}
+  save();render();return;
+ }
+ if(kind==='mathSkip'){
+  const wrong=q.options.findIndex((_,i)=>i!==q.answer);
+  c.hintShown=true;
+  if(PracticeEngine.answer(c,wrong)){mathFeedback=null;save();render()}
+  return;
+ }
+ if(kind==='mathPrereq'){
+  mathPrereq=c.topicId;mathFeedback=null;render();return;
+ }
+ if(kind==='mathPrereqClose'){mathPrereq=null;mathFeedback=null;render();return}
+ if(kind==='mathPrereqCheck'){
+  const result=MathCoach.checkPrerequisite(c.topicId,document.getElementById('math-prereq')?.value||'');
+  mathFeedback=result.reason||'';
+  if(result.valid&&result.correct)mathPrereq=null;
+  render();return;
+ }
 }
 
 function revisions(){
@@ -346,6 +389,7 @@ function handle(raw){
  if(kind==='returnMain'){mode='question';route='exercice';render();return}
  if(kind.startsWith('challenge')){handleConjugation(p);return}
  if(kind.startsWith('practice')){handlePractice(p);return}
+ if(kind.startsWith('math')){handleMath(kind);return}
  if(kind==='answer'){submitAnswer(Number(id));return}
  if(kind==='dictationListen'){const e=findExercise(id);if(e&&'speechSynthesis' in window){window.speechSynthesis.cancel();const msg=new SpeechSynthesisUtterance(e.text);msg.lang='fr-FR';msg.rate=0.85;window.speechSynthesis.speak(msg)}return}
  if(kind==='dictationCheck'){checkDictation();return}

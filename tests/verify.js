@@ -111,4 +111,13 @@ personal.record(profile,{topicId:'po-homophone',question:hom,correct:true,assist
 assert.equal(profile.skillProgress['po-homophone'].independent,0);
 assert.equal(personal.hydrate(profile,{practice:practiceBank,conjugation}),false);
 assert.ok(personal.recommendations(profile,practiceBank.TOPICS,today.getTime()+3000,3).length>=1);
+const mathCoach=require('../math-coach.js');
+const mathAudit=mathCoach.audit(practiceBank);
+assert.equal(mathAudit.total,220);
+assert.deepEqual(mathAudit.issues,[]);
+for(const q of practiceBank.QUESTIONS.filter(x=>x.domain==='math')){
+ const result=mathCoach.check(q,q.right);
+ assert.equal(result.correct,true,'Erreur de réponse libre '+q.id);
+}
+assert.equal(mathCoach.check(practiceBank.pool('pm-equivalences')[0],'0/0').valid,false);
 console.log('V6 : personnalisation, migration, recommandations et 674 variantes vérifiées');
