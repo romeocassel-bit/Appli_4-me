@@ -98,4 +98,17 @@ for(const topic of practiceBank.TOPICS){
   assert.equal(practiceEngine.summary(challenge).autonomous,true);
  }
 }
-console.log('Tests : 336 conjugaisons, 338 exercices orthographe/maths et parcours — OK');
+const personal=require('../personalization-engine.js');
+const profile={practiceHistory:[],conjugationHistory:[],reviews:{}};
+assert.equal(personal.hydrate(profile,{practice:practiceBank,conjugation}),true);
+const hom=practiceBank.pool('po-homophone')[0];
+personal.record(profile,{topicId:'po-homophone',question:hom,correct:false,at:today.getTime()});
+personal.record(profile,{topicId:'po-homophone',question:hom,correct:false,at:today.getTime()+1000});
+assert.equal(personal.weakSpots(profile,'po-homophone').length,1);
+const score=personal.questionBias(profile,'po-homophone',hom);
+assert.ok(score>0);
+personal.record(profile,{topicId:'po-homophone',question:hom,correct:true,assisted:true,at:today.getTime()+2000});
+assert.equal(profile.skillProgress['po-homophone'].independent,0);
+assert.equal(personal.hydrate(profile,{practice:practiceBank,conjugation}),false);
+assert.ok(personal.recommendations(profile,practiceBank.TOPICS,today.getTime()+3000,3).length>=1);
+console.log('V6 : personnalisation, migration, recommandations et 674 variantes vérifiées');
