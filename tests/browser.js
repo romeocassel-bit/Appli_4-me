@@ -64,6 +64,27 @@ async function run(){
    await page.locator('[data-action="mathShowChoices"]').click();
    assert.equal(await page.locator('[data-action^="practiceAnswer:"]').count(),3);
    assert.ok((await page.locator('#app').innerText()).includes('Question 1 sur 3'));
+   await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Maths"]').click();
+   await page.locator('[data-action="exercise:mj-equations"]').click();
+   await page.locator('[data-action="journeyStart:mj-equations:prerequis"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Étape 1 sur 3'));
+   await page.locator('#journey-input').fill('7');
+   await page.reload();
+   await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Maths"]').click();
+   await page.locator('[data-action="exercise:mj-equations"]').click();
+   assert.equal(await page.locator('#journey-input').inputValue(),'7');
+   for(let i=0;i<3;i++){
+     const answer=await page.evaluate(()=>{
+       const c=window.MathJourney.current(JSON.parse(localStorage.getItem('appli4e-learning-v2')).mathJourney);
+       return c.expectedDisplay;
+     });
+     await page.locator('#journey-input').fill(answer);
+     await page.locator('[data-action="journeyCheck"]').click();
+     await page.locator('[data-action="journeyNext"]').click();
+   }
+   assert.ok((await page.locator('#app').innerText()).includes('Ton niveau est terminé'));
    await page.locator('[data-nav="accueil"]').click();
    await page.locator('[data-action="start"]').click();
    assert.ok((await page.locator('#app').innerText()).includes('Étape 1'));
