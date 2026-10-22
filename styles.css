@@ -3,3 +3,5 @@
 .bar{margin:12px 0 16px}
 .btn,.choice{min-height:44px}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.field-label{display:block;margin:20px 0 8px;font-weight:700}textarea{display:block;width:100%;border:1px solid #cccbdc;border-radius:12px;padding:14px;font:inherit;color:#273043;line-height:1.6;resize:vertical}textarea:focus-visible{outline:3px solid #897dcc;outline-offset:2px}.corrections{padding-left:20px;line-height:1.8}.corrections li{margin:8px 0}
