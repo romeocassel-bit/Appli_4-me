@@ -77,4 +77,25 @@ for(const topic of conjugation.TOPICS){
 }
 const adapted=conjugation.create({reviews:{'ct:present':{stage:3}},conjugationHistory:[]},'ct:present',5);
 assert.equal(adapted.questions.length,5);
-console.log('Tests : mémorisation, dictées, budgets et 336 conjugaisons — OK');
+
+const practiceBank=require('../practice-bank.js');
+const practiceEngine=require('../practice-engine.js');
+assert.equal(practiceBank.questionCount,338);
+assert.deepEqual(practiceBank.verify(),[]);
+for(const topic of practiceBank.TOPICS){
+ assert.ok(practiceBank.pool(topic.id).length>=15);
+ for(const count of [3,5,8]){
+  const challenge=practiceEngine.create({reviews:{},practiceHistory:[]},topic.id,count);
+  assert.equal(challenge.questions.length,count);
+  assert.equal(new Set(challenge.questions).size,count);
+  for(let i=0;i<count;i++){
+   const q=practiceEngine.current(challenge);
+   assert.equal(q.options[q.answer],q.right);
+   assert.equal(practiceEngine.answer(challenge,q.answer).correct,true);
+   assert.equal(practiceEngine.answer(challenge,q.answer),null);
+   assert.equal(practiceEngine.advance(challenge),true);
+  }
+  assert.equal(practiceEngine.summary(challenge).autonomous,true);
+ }
+}
+console.log('Tests : 336 conjugaisons, 338 exercices orthographe/maths et parcours — OK');
