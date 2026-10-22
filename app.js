@@ -13,10 +13,10 @@ const exercises=[
 ];
 const readings=window.APP_READINGS||[];
 const orthography=window.ORTHOGRAPHY_DATA||{questions:[],dictations:[]};
-exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS,...MathJourney.TOPICS);
+exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS,...MathJourney.TOPICS,...FrenchPaths.TOPICS);
 // Anciennes questions uniques conservées uniquement pour les progrès et les séances déjà commencées.
 // Les nouvelles séances et le catalogue exposent les parcours multiquestions et les dictées.
-const activeExercises=exercises.filter(e=>['dictation','challenge','practice','journey'].includes(e.type)||e.subject==='Histoire-géo');
+const activeExercises=exercises.filter(e=>['dictation','challenge','practice','journey','frenchPath'].includes(e.type)||e.subject==='Histoire-géo');
 let stored=null,legacy=null;
 try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
 try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
@@ -27,6 +27,8 @@ state.mathJourneyHistory=Array.isArray(stored?.mathJourneyHistory)?stored.mathJo
 state.mathJourneyProgress=stored?.mathJourneyProgress&&typeof stored.mathJourneyProgress==='object'?stored.mathJourneyProgress:{};
 state.mathJourney=stored?.mathJourney&&MathJourney.TOPICS.some(t=>t.id===stored.mathJourney.topicId)?stored.mathJourney:null;
 state.readingBookmarks=stored?.readingBookmarks&&typeof stored.readingBookmarks==='object'?stored.readingBookmarks:{};
+state.frenchPathHistory=Array.isArray(stored?.frenchPathHistory)?stored.frenchPathHistory:[];
+state.frenchPath=stored?.frenchPath&&FrenchPaths.TOPICS.some(x=>x.id===stored.frenchPath.topicId)?stored.frenchPath:null;
 state.readerSettings=stored?.readerSettings&&typeof stored.readerSettings==='object'?stored.readerSettings:{size:'normal',theme:'clair'};
 const personalizationMigrated=PersonalizationEngine.hydrate(state,{conjugation:ConjugationEngine,practice:PracticeBank});
 state.practiceChallenge=stored?.practiceChallenge&&PracticeBank.TOPICS.some(t=>t.id===stored.practiceChallenge.topicId)?stored.practiceChallenge:null;
@@ -70,7 +72,7 @@ function goSessionStep(){
  const step=sessionStep();
  if(!step){route='accueil';render();return}
  if(step.kind==='reading')openReading(step.id,'session');
- else { const c=findExercise(step.id);if(c?.type==='journey'&&state.mathJourney?.topicId===step.id&&state.mathJourney.sessionId===state.activeSession.id&&!state.mathJourney.finished){openExercise(step.id,'session');return}if(c?.type==='practice'&&state.practiceChallenge?.topicId===step.id&&state.practiceChallenge.sessionId===state.activeSession.id&&!state.practiceChallenge.finished){openExercise(step.id,'session');return}if(c?.type==='challenge'&&state.challenge?.topicId===step.id&&state.challenge.sessionId===state.activeSession.id&&!state.challenge.finished){openExercise(step.id,'session');return}openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));}
+ else { const c=findExercise(step.id);if(c?.type==='frenchPath'&&state.frenchPath?.topicId===step.id&&!state.frenchPath.finished){openExercise(step.id,'session');return}if(c?.type==='journey'&&state.mathJourney?.topicId===step.id&&state.mathJourney.sessionId===state.activeSession.id&&!state.mathJourney.finished){openExercise(step.id,'session');return}if(c?.type==='practice'&&state.practiceChallenge?.topicId===step.id&&state.practiceChallenge.sessionId===state.activeSession.id&&!state.practiceChallenge.finished){openExercise(step.id,'session');return}if(c?.type==='challenge'&&state.challenge?.topicId===step.id&&state.challenge.sessionId===state.activeSession.id&&!state.challenge.finished){openExercise(step.id,'session');return}openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));}
 }
 function sessionHome(){
  const session=state.activeSession;
@@ -145,6 +147,7 @@ function subjects(){return head('Mes matières','Choisis une matière','Des parc
  +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+esc(subject)+'</h2><span class="pill">'+activeExercises.filter(x=>x.subject===subject).length+' activités</span></div>'+btn('Explorer','subject:'+subject))).join('')}
 function activityCard(e){
  const types={
+  frenchPath:{name:'3 étapes',description:'Observer, s’entraîner, puis écrire quelques phrases.',action:'Découvrir le parcours'},
   journey:{name:'3 niveaux',description:'Prérequis, automatismes puis problème en trois étapes.',action:'Découvrir le parcours'},
   practice:{name:'3 à 8 questions',description:'Choisir une série de 3, 5 ou 8 questions variées.',action:'Choisir une série'},
   challenge:{name:'3 à 8 questions',description:'Plusieurs phrases et plusieurs temps pour s’entraîner.',action:'Choisir une série'},
@@ -164,10 +167,12 @@ function subjectPage(){
    +subjectSection('Séries d’automatismes','Plusieurs questions par défi. Pas de question unique.',items.filter(e=>e.type==='practice'));
  }
  if(currentSubject==='Français'){
-  return head('Mes matières','Français','Plusieurs exemples par notion et des mini-dictées.')
+  return head('Mes matières','Français','Grammaire, écriture et lectures à ton rythme.')
+   +subjectSection('Comprendre et écrire','Six parcours progressifs avec rédaction facultative.',items.filter(e=>e.type==='frenchPath'))
    +subjectSection('Orthographe','Accords, homophones et règles à retrouver.',items.filter(e=>e.type==='practice'))
    +subjectSection('Choisis ton temps de conjugaison','Présent, imparfait, futur simple ou passé composé. Tu peux aussi mélanger les temps.',items.filter(e=>e.type==='challenge'))
-   +subjectSection('Mini-dictées','Une phrase complète à écouter puis à écrire.',items.filter(e=>e.type==='dictation'));
+   +subjectSection('Mini-dictées','Une phrase complète à écouter puis à écrire.',items.filter(e=>e.type==='dictation'))
+   +card('<h2>Pour retrouver un mot ou un auteur</h2><div class="actions">'+btn('Petit lexique','frenchLexicon','secondary')+btn('Quelques auteurs','frenchAuthors','secondary')+'</div>');
  }
  return head('Mes matières',currentSubject,'De courtes questions pour découvrir une notion.')
   +subjectSection('Questions de découverte','Ces activités contiennent encore une seule question.',items);
@@ -178,6 +183,7 @@ function exercise(){
  if(e.type==='challenge')return conjugationView(e);
  if(e.type==='practice')return practiceView(e);
  if(e.type==='journey')return mathJourneyView(e);
+ if(e.type==='frenchPath')return frenchPathView(e);
  const probe=mode==='probe';
  return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
  +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
@@ -452,6 +458,77 @@ function handleJourney(parts){
  }
 }
 
+
+function frenchPathView(topic){
+ const c=state.frenchPath?.topicId===topic.id?state.frenchPath:null;
+ if(!c||c.finished)return head('Français · Parcours',topic.topic,'Observer, s’entraîner, puis écrire librement.')
+ +card('<p class="muted">Deux petites questions pour comprendre, puis une activité d’écriture facultative. Aucun texte rédigé n’est noté automatiquement.</p>'
+ +'<p><b>Repère :</b> '+esc(FrenchPaths.TOPICS.find(t=>t.id===topic.id)?.tag||'Français')+'</p>'
+ +btn('Commencer les trois étapes','frenchStart:'+topic.id))
+ +card('<p class="muted">Tu peux aussi consulter les repères sans exercice.</p>'+btn('Petit lexique','frenchLexicon','secondary')+btn('Quelques auteurs','frenchAuthors','outline'));
+ const q=FrenchPaths.current(c),ans=c.answers.find(x=>x.step===c.cursor);
+ if(!q)return head('Français','Parcours terminé')+card(btn('Voir le bilan','frenchNext'));
+ const row=head(topic.tag,topic.topic,q.level.label+' · étape '+(c.cursor+1)+'/3');
+ if(ans)return row+card('<h2>'+(q.kind==='writing'?'Ton texte est conservé':'La réponse expliquée')+'</h2>'
+ +(q.kind==='writing'&&ans.completed?'<p class="writing-saved">'+esc(ans.text)+'</p>':'')
+ +'<div class="feedback">'+esc(c.feedback||'Tu as avancé dans ce parcours.')+'</div>'
+ +(q.kind==='writing'?'<p class="muted">Exemple possible : '+esc(q.example)+'</p><p class="muted">Il existe plusieurs réponses valables.</p>':'<p><b>'+esc(q.explanation)+'</b></p>')
+ +btn('Continuer','frenchNext'));
+ if(q.kind==='writing')return row+card('<h2>'+esc(q.prompt)+'</h2><p class="muted">Deux à cinq phrases suffisent. Ce texte ne sera pas évalué automatiquement.</p>'
+ +'<label class="field-label" for="french-writing">Mon petit texte</label><textarea id="french-writing" rows="5" maxlength="1200" placeholder="Je raconte, je décris, je reformule…">'+esc(c.draft||'')+'</textarea>'
+ +(c.feedback?'<div class="feedback" role="status">'+esc(c.feedback)+'</div>':'')
+ +'<div class="writing-checklist"><b>Pour me relire :</b>'+q.checklist.map(x=>'<p>□ '+esc(x)+'</p>').join('')+'</div>'
+ +'<div class="actions">'+btn('Conserver mon texte','frenchWrite')+btn('Voir un exemple','frenchExample','secondary')+btn('Passer','frenchSkip','outline')+'</div>'
+ +'<div class="actions">'+btn('Faire une pause','nav:matieres','outline')+'</div>');
+ return row+card('<h2>'+esc(q.question)+'</h2><div class="choices">'+q.options.map((x,i)=>'<button class="choice" data-action="frenchAnswer:'+i+'">'+esc(x)+'</button>').join('')+'</div>'
+ +(c.feedback?'<div class="feedback" role="status">'+esc(c.feedback)+'</div>':'')
+ +'<div class="actions">'+btn('Un indice','frenchHint','secondary')+btn('Faire une pause','nav:matieres','outline')+'</div>');
+}
+function frenchEnd(){
+ const c=state.frenchPath;if(!c)return subjects();
+ const s=FrenchPaths.summary(c);
+ return head('Français','Ton parcours est terminé','Les textes écrits sont des essais, pas des notes.')
+ +card('<h2>'+s.correct+' réponse(s) sur '+s.questions+'</h2><p>'+(s.written?'Tu as aussi produit un petit texte.':'L’écriture pourra attendre une prochaine fois.')+'</p>'
+ +'<div class="actions">'+btn('Choisir un autre parcours','nav:matieres')+btn('Recommencer','frenchReset','secondary')+'</div>');
+}
+function frenchLexique(){
+ const groups=[...new Set(FrenchPaths.LEXICON.map(x=>x.category))];
+ return head('Français','Mon petit lexique','Des mots utiles à retrouver quand tu en as besoin.')
+ +groups.map(g=>card('<h2>'+esc(g)+'</h2>'+FrenchPaths.LEXICON.filter(x=>x.category===g).map(x=>'<div class="reference-entry"><b>'+esc(x.term)+'</b><p>'+esc(x.definition)+'</p><p class="muted">Exemple : '+esc(x.example)+'</p></div>').join(''))).join('')
+ +card(btn('Retour au français','subject:Français'));
+}
+function frenchAuteurs(){
+ return head('Français','Quelques auteurs à découvrir','Des repères facultatifs, à relier aux cours étudiés.')
+ +FrenchPaths.AUTHORS.map(x=>card('<h2>'+esc(x.name)+'</h2><p class="muted">'+esc(x.genre)+'</p><p><b>Une œuvre :</b> '+esc(x.work)+'</p><p>'+esc(x.essential)+'</p>')).join('')
+ +card(btn('Retour au français','subject:Français'));
+}
+function handleFrench(parts){
+ const kind=parts[0];
+ if(kind==='frenchLexicon'){route='lexique';render();return}
+ if(kind==='frenchAuthors'){route='auteurs';render();return}
+ if(kind==='frenchStart'){
+  const topic=parts.slice(1).join(':');
+  state.frenchPath=FrenchPaths.create(state,topic,source,state.activeSession?.id||null);
+  activeId=topic;save();render();return;
+ }
+ const c=state.frenchPath;if(!c)return;
+ if(kind==='frenchReset'){activeId=c.topicId;state.frenchPath=null;route='exercice';save();render();return}
+ if(c.finished)return;
+ const q=FrenchPaths.current(c);
+ if(kind==='frenchAnswer'){if(FrenchPaths.select(c,+parts[1]).valid){save();render()}return}
+ if(kind==='frenchHint'){c.hintShown=true;c.feedback=q?.kind==='choice'?'Observe les mots importants, puis élimine une proposition.':'';save();render();return}
+ if(kind==='frenchExample'){c.feedback='Un exemple possible : '+q.example;save();render();return}
+ if(kind==='frenchWrite'||kind==='frenchSkip'){
+  if(kind==='frenchWrite'){const input=document.getElementById('french-writing');if(input)c.draft=input.value.slice(0,1200)}
+  const res=FrenchPaths.saveWriting(c,c.draft,kind==='frenchSkip');
+  if(!res.valid)c.feedback=res.reason;
+  save();render();return;
+ }
+ if(kind==='frenchNext'){
+  if(FrenchPaths.advance(c)){if(c.finished){FrenchPaths.record(state,c);route='frenchBilan'}save();render()}return;
+ }
+}
+
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
  +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
@@ -479,12 +556,14 @@ function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as
  +card('<h2>'+((lastSummary&&lastSummary.completed)||0)+' activité(s) réalisées</h2><p class="muted">Tu peux revenir quand tu en auras envie. Aucune absence n’est pénalisée.</p>'+btn('Retour à l’accueil','nav:accueil'))}
 function render(){
  const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
- matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd,journeyBilan:journeyEnd};
+ matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd,journeyBilan:journeyEnd,frenchBilan:frenchEnd,lexique:frenchLexique,auteurs:frenchAuteurs};
  root.innerHTML=(pages[route]||home)();
  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
  const input=document.getElementById('journey-input');
  if(input)input.addEventListener('input',()=>{if(state.mathJourney&&!state.mathJourney.finished){state.mathJourney.draft=input.value.slice(0,100);save()}});
+ const writing=document.getElementById('french-writing');
+ if(writing)writing.addEventListener('input',()=>{if(state.frenchPath&&!state.frenchPath.finished){state.frenchPath.draft=writing.value.slice(0,1200);save()}});
  const conjugationField=document.getElementById('conjugation-input');
  if(conjugationField)conjugationField.addEventListener('input',()=>{if(state.challenge&&!state.challenge.finished){state.challenge.draft=conjugationField.value.slice(0,100);save()}});
 }
@@ -497,7 +576,7 @@ function finishCurrentStep(){
 }
 function submitAnswer(index){
  const e=findExercise(activeId);if(!e)return;
- if(e.type==='dictation'||e.type==='challenge'||e.type==='practice'||e.type==='journey')return;
+ if(e.type==='dictation'||e.type==='challenge'||e.type==='practice'||e.type==='journey'||e.type==='frenchPath')return;
  const probing=mode==='probe',correct=index===(probing?e.probeAnswer:e.answer);
  const origin=source==='session'?'session':'libre';
  if(probing)questionHelped=true;
@@ -550,6 +629,7 @@ function handle(raw){
  if(kind==='returnMain'){mode='question';route='exercice';render();return}
  if(kind.startsWith('challenge')){handleConjugation(p);return}
  if(kind.startsWith('practice')){handlePractice(p);return}
+ if(kind.startsWith('french')){handleFrench(p);return}
  if(kind.startsWith('journey')){handleJourney(p);return}
  if(kind.startsWith('math')){handleMath(kind);return}
  if(kind==='answer'){submitAnswer(Number(id));return}
