@@ -14,6 +14,9 @@ const exercises=[
 const readings=window.APP_READINGS||[];
 const orthography=window.ORTHOGRAPHY_DATA||{questions:[],dictations:[]};
 exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS,...MathJourney.TOPICS);
+// Anciennes questions uniques conservées uniquement pour les progrès et les séances déjà commencées.
+// Les nouvelles séances et le catalogue exposent les parcours multiquestions et les dictées.
+const activeExercises=exercises.filter(e=>['dictation','challenge','practice','journey'].includes(e.type)||e.subject==='Histoire-géo');
 let stored=null,legacy=null;
 try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
 try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
@@ -41,7 +44,7 @@ const btn=(label,action,cls='')=>'<button class="btn '+cls+'" data-action="'+esc
 function findExercise(id){return exercises.find(x=>x.id===id)}
 function findReading(id){return readings.find(x=>x.id===id)}
 function actionRow(){return saveError?'<p class="muted">La sauvegarde locale est indisponible sur ce navigateur.</p>':''}
-function due(){return Engine.getDue(state,exercises)}
+function due(){return Engine.getDue(state,activeExercises)}
 function sessionStep(){return Engine.currentStep(state)}
 function openExercise(id,origin='libre',help=false){mathInput='';mathFeedback=null;mathMistakes=0;mathPrereq=null;mathShowChoices=false;activeId=id;dictationResult=null;dictationText='';source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
 function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render()}
@@ -102,10 +105,37 @@ function afterReading(id){
  +card('<h2>Et maintenant ?</h2><div class="actions">'+btn('Une question facultative','readingQuiz:'+id,'secondary')+btn('Terminer ici',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline')+'</div>');
 }
 function readingQuiz(){const t=findReading(readId);return head('Si tu en as envie','Une petite question','Tu peux aussi passer sans répondre.')+card('<h2>'+esc(t.question)+'</h2><div class="choices">'+t.options.map((x,i)=>'<button class="choice" data-action="readingAnswer:'+t.id+':'+i+'">'+esc(x)+'</button>').join('')+'</div>'+btn('Passer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline'))}
-function subjects(){return head('Mes matières','Choisis une matière','Un essai, un conseil précis, et des rappels plus tard.')
- +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+subject+'</h2><span class="pill">'+exercises.filter(x=>x.subject===subject).length+' défis</span></div>'+btn('Explorer','subject:'+subject))).join('')}
-function subjectPage(){return head('Mes matières',currentSubject,'À toi de choisir.')
- +exercises.filter(e=>e.subject===currentSubject).map(e=>card('<h2>'+esc(e.topic)+'</h2>'+btn('Essayer','exercise:'+e.id))).join('')}
+function subjects(){return head('Mes matières','Choisis une matière','Des parcours progressifs et des défis à plusieurs questions.')
+ +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+esc(subject)+'</h2><span class="pill">'+activeExercises.filter(x=>x.subject===subject).length+' activités</span></div>'+btn('Explorer','subject:'+subject))).join('')}
+function activityCard(e){
+ const types={
+  journey:{name:'3 niveaux',description:'Prérequis, automatismes puis problème en trois étapes.',action:'Découvrir le parcours'},
+  practice:{name:'3 à 8 questions',description:'Choisir une série de 3, 5 ou 8 questions variées.',action:'Choisir une série'},
+  challenge:{name:'3 à 8 questions',description:'Plusieurs phrases et plusieurs temps pour s’entraîner.',action:'Choisir une série'},
+  dictation:{name:'Mini-dictée',description:'Écouter, écrire, puis comparer avec une correction.',action:'Faire la dictée'}
+ };
+ const info=types[e.type]||{name:'1 question',description:'Petite question de découverte.',action:'Essayer'};
+ return card('<div class="row"><div><h2>'+esc(e.topic)+'</h2><p class="muted">'+esc(info.description)+'</p></div><span class="pill">'+esc(info.name)+'</span></div><div class="actions">'+btn(info.action,'exercise:'+e.id)+'</div>');
+}
+function subjectSection(name,description,items){
+ return items.length?'<div class="subject-section"><h2>'+esc(name)+'</h2><p class="muted">'+esc(description)+'</p>'+items.map(activityCard).join('')+'</div>':'';
+}
+function subjectPage(){
+ const items=activeExercises.filter(e=>e.subject===currentSubject);
+ if(currentSubject==='Maths'){
+  return head('Mes matières','Maths','Choisis des automatismes ou un parcours en trois niveaux.')
+   +subjectSection('Parcours guidés','Prérequis → automatismes → problèmes à plusieurs étapes.',items.filter(e=>e.type==='journey'))
+   +subjectSection('Séries d’automatismes','Plusieurs questions par défi. Pas de question unique.',items.filter(e=>e.type==='practice'));
+ }
+ if(currentSubject==='Français'){
+  return head('Mes matières','Français','Plusieurs exemples par notion et des mini-dictées.')
+   +subjectSection('Orthographe','Accords, homophones et règles à retrouver.',items.filter(e=>e.type==='practice'))
+   +subjectSection('Conjugaison','Présent, imparfait, futur simple et passé composé.',items.filter(e=>e.type==='challenge'))
+   +subjectSection('Mini-dictées','Une phrase complète à écouter puis à écrire.',items.filter(e=>e.type==='dictation'));
+ }
+ return head('Mes matières',currentSubject,'De courtes questions pour découvrir une notion.')
+  +subjectSection('Questions de découverte','Ces activités contiennent encore une seule question.',items);
+}
 function exercise(){
  const e=findExercise(activeId);if(!e)return subjects();
  if(e.type==='dictation')return dictationView(e);
@@ -381,12 +411,12 @@ function revisions(){
  :card('<h2>Rien d’urgent aujourd’hui</h2><p class="muted">Les notions reviendront à intervalles progressivement plus longs.</p>'+btn('Choisir une matière','nav:matieres','secondary')));
 }
 function progress(){
- const summary=Engine.recap(state,exercises);
+ const summary=Engine.recap(state,activeExercises);
  const detailed=PersonalizationEngine.report(state,[...ConjugationEngine.TOPICS,...PracticeBank.TOPICS]).filter(x=>x.attempts).slice(0,12);
  return head('Mon chemin','Mes progrès','On cherche à comprendre ce qui devient plus facile, sans comparaison.')
  +card('<div class="grid"><div><div class="eyebrow">Histoires découvertes</div><h1>'+summary.readings+'</h1></div><div><div class="eyebrow">Séances terminées</div><h1>'+summary.sessions+'</h1></div><div><div class="eyebrow">Réussites autonomes</div><h1>'+summary.independentSuccesses+'</h1></div><div><div class="eyebrow">Réussites avec aide</div><h1>'+summary.assistedSuccesses+'</h1></div></div>')
  +card('<h2>Compétences travaillées</h2>'+(detailed.length?detailed.map(x=>'<div class="row"><div><b>'+esc(x.title)+'</b><div class="min">'+x.independent+' sans indice · '+x.errors+' erreurs'+(x.weak.length?' · À revoir : '+esc(x.weak.map(w=>w.label).join(', ')):'')+'</div></div><span class="pill">'+esc(x.status.label)+'</span></div>').join(''):'<p class="muted">Les compétences apparaîtront après tes premiers défis.</p>'))
- +card('<h2>Les notions en chemin</h2>'+exercises.filter(e=>state.reviews[e.id]).map(e=>{
+ +card('<h2>Les notions en chemin</h2>'+activeExercises.filter(e=>state.reviews[e.id]).map(e=>{
  const r=state.reviews[e.id],label=r.stage>=3?'En consolidation':r.lastOutcome==='avec aide'?'Avec aide':'À retrouver';
  return '<div class="row"><p>'+esc(e.topic)+'</p><span class="pill">'+label+'</span></div>';
  }).join('')+(!summary.seen?'<p class="muted">Les notions apparaîtront après tes premiers défis.</p>':''));
@@ -433,7 +463,7 @@ function handle(raw){
  const p=raw.split(':'),kind=p[0],id=p[1];
  if(kind==='nav'){route=id;if(id==='fin'&&!lastSummary)lastSummary=state.sessions[state.sessions.length-1]||null;render();return}
  if(kind==='duration'){if(!state.activeSession && Engine.DURATIONS.includes(+id)){state.duration=+id;save()}render();return}
- if(kind==='start'){Engine.beginSession(state,exercises,readings);save();route='seance';render();return}
+ if(kind==='start'){Engine.beginSession(state,activeExercises,readings);save();route='seance';render();return}
  if(kind==='resume'){route='seance';render();return}
  if(kind==='doStep'){goSessionStep();return}
  if(kind==='nextStep'){finishCurrentStep();return}
