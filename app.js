@@ -21,7 +21,7 @@ let saveError=false;
 if(!stored)save();
 const root=document.getElementById('app');
 let route='accueil',activeId=null,mode='question',currentSubject='Français',readId=null;
-let source='libre',questionHelped=false,lastSummary=null,feedbackView=null;
+let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const card=(inner,extra='')=>'<section class="card '+extra+'">'+inner+'</section>';
 const head=(k,title,sub='')=>'<div class="hero"><div class="eyebrow">'+esc(k)+'</div><h1>'+esc(title)+'</h1><p class="muted">'+esc(sub)+'</p></div>';
@@ -32,7 +32,7 @@ function actionRow(){return saveError?'<p class="muted">La sauvegarde locale est
 function due(){return Engine.getDue(state,exercises)}
 function sessionStep(){return Engine.currentStep(state)}
 function openExercise(id,origin='libre',help=false){activeId=id;source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
-function openReading(id,origin='libre'){readId=id;source=origin;route='texte';render()}
+function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render()}
 function goSessionStep(){
  const step=sessionStep();
  if(!step){route='accueil';render();return}
@@ -85,9 +85,9 @@ function afterReading(id){
  return head('Lecture terminée','Tu as lu '+t.title,'Tu peux t’arrêter là. Aucune question n’est obligatoire.')
  +card('<h2>Cette histoire t’a plu ?</h2><div class="actions">'+['Pas pour moi','Ça allait','J’en lirais un autre'].map((x,i)=>btn(x,'rating:'+id+':'+i,state.prefs[id]===i?'':'secondary')).join('')+'</div>')
  +(next?card('<h2>La suite : '+esc(next.title)+'</h2><p class="muted">Tu pourras la lire une prochaine fois.</p>'+btn('Lire la suite','read:'+next.id,'secondary')):'')
- +card('<h2>Et maintenant ?</h2><div class="actions">'+btn('Une question facultative','readingQuiz:'+id,'secondary')+btn('Terminer ici',source==='session'?'nextStep':'nav:lecture','outline')+'</div>');
+ +card('<h2>Et maintenant ?</h2><div class="actions">'+btn('Une question facultative','readingQuiz:'+id,'secondary')+btn('Terminer ici',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline')+'</div>');
 }
-function readingQuiz(){const t=findReading(readId);return head('Si tu en as envie','Une petite question','Tu peux aussi passer sans répondre.')+card('<h2>'+esc(t.question)+'</h2><div class="choices">'+t.options.map((x,i)=>'<button class="choice" data-action="readingAnswer:'+t.id+':'+i+'">'+esc(x)+'</button>').join('')+'</div>'+btn('Passer',source==='session'?'nextStep':'nav:lecture','outline'))}
+function readingQuiz(){const t=findReading(readId);return head('Si tu en as envie','Une petite question','Tu peux aussi passer sans répondre.')+card('<h2>'+esc(t.question)+'</h2><div class="choices">'+t.options.map((x,i)=>'<button class="choice" data-action="readingAnswer:'+t.id+':'+i+'">'+esc(x)+'</button>').join('')+'</div>'+btn('Passer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline'))}
 function subjects(){return head('Mes matières','Choisis une matière','Un essai, un conseil précis, et des rappels plus tard.')
  +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+subject+'</h2><span class="pill">'+exercises.filter(x=>x.subject===subject).length+' défis</span></div>'+btn('Explorer','subject:'+subject))).join('')}
 function subjectPage(){return head('Mes matières',currentSubject,'À toi de choisir.')
@@ -161,9 +161,11 @@ function handle(raw){
  if(kind==='read'){openReading(id);return}
  if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
  if(kind==='readDone'){
+  readingSessionCompleted=false;
   Engine.recordReading(state,id,{source:source==='session'?'session':'libre'});
   if(source==='session'&&sessionStep()?.kind==='reading'&&sessionStep()?.id===id){
-    // Reading is completed before showing the optional reflection screen.
+    // Lecture terminée : la prochaine étape est seulement proposée après réflexion.
+    readingSessionCompleted=true;
     const current=state.activeSession;
     current.completed.push({kind:'reading',id,at:Date.now(),outcome:'complete'});
     current.cursor++;
@@ -175,7 +177,7 @@ function handle(raw){
  if(kind==='readingQuiz'){readId=id;route='lecturequiz';render();return}
  if(kind==='readingAnswer'){
  const r=findReading(id),correct=Number(p[2])===r.answer;Engine.recordAttempt(state,id,{correct,kind:'reading',source:'libre'});save();
- root.innerHTML=head('Compréhension',correct?'Bien trouvé !':'Une occasion de relire')+card('<p>'+esc(correct?'Tu as retrouvé une information importante.':'Relis le passage qui raconte ce moment si tu en as envie.')+'</p>'+btn('Continuer',state.activeSession?'nav:seance':'nav:lecture'));root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));return;
+ root.innerHTML=head('Compréhension',correct?'Bien trouvé !':'Une occasion de relire')+card('<p>'+esc(correct?'Tu as retrouvé une information importante.':'Relis le passage qui raconte ce moment si tu en as envie.')+'</p>'+btn('Continuer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture'));root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));return;
  }
  if(kind==='answer'){submitAnswer(Number(id));return}
  if(kind==='probe'){questionHelped=true;mode='probe';route='exercice';render();return}
