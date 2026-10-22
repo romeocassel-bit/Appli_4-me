@@ -100,8 +100,8 @@ function sessionView(){
 function library(){
  const series=readings.filter(r=>r.seriesId==='solstice');
  const rest=readings.filter(r=>r.seriesId!=='solstice');
- function entry(r){const visited=state.reading.some(x=>x.id===r.id);
- return card('<div class="row"><span class="pill">'+(r.seriesId?'Épisode '+r.episode+'/'+series.length:esc(r.genre))+'</span><span class="min">Environ '+r.time+' min</span></div><h2 style="margin-top:12px">'+esc(r.title)+'</h2><div class="actions">'+btn(visited?'Relire':'Découvrir','read:'+r.id)+'</div>')}
+ function entry(r){const visited=state.reading.some(x=>x.id===r.id);const bookmark=state.readingBookmarks?.[r.id]||0;
+ return card('<div class="row"><span class="pill">'+(r.seriesId?'Épisode '+r.episode+'/'+series.length:esc(r.genre))+'</span><span class="min">Environ '+r.time+' min</span></div><h2 style="margin-top:12px">'+esc(r.title)+'</h2>'+(bookmark?'<p class="muted">Marque-page enregistré · paragraphe '+(bookmark+1)+'</p>':'')+'<div class="actions">'+btn(bookmark?'Reprendre':visited?'Relire':'Découvrir','read:'+r.id)+'</div>')}
  return head('Bibliothèque','Et si tu avais envie de la suite ?','Aucun questionnaire obligatoire. Choisis ce qui te plaît.')
  +card('<h2>Les secrets de l’Académie Solstice</h2><p class="muted">Magie, amitié, musique et mystères légers.</p>','highlight')
  +series.map(entry).join('')+'<h2 style="margin-top:25px">D’autres histoires</h2>'+rest.map(entry).join('');
@@ -510,7 +510,7 @@ function submitAnswer(index){
 }
 function handle(raw){
  const p=raw.split(':'),kind=p[0],id=p[1];
- if(kind==='nav'){route=id;if(id==='fin'&&!lastSummary)lastSummary=state.sessions[state.sessions.length-1]||null;render();return}
+ if(kind==='nav'){if(route==='texte')saveReadingBookmark();route=id;if(id==='fin'&&!lastSummary)lastSummary=state.sessions[state.sessions.length-1]||null;render();return}
  if(kind==='duration'){if(!state.activeSession && Engine.DURATIONS.includes(+id)){state.duration=+id;save()}render();return}
  if(kind==='start'){Engine.beginSession(state,activeExercises,readings);save();route='seance';render();return}
  if(kind==='resume'){route='seance';render();return}
@@ -528,6 +528,8 @@ function handle(raw){
  if(kind==='read'){openReading(id);return}
  if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
  if(kind==='readDone'){
+  saveReadingBookmark();
+  state.readingBookmarks[id]=0;
   readingSessionCompleted=false;
   Engine.recordReading(state,id,{source:source==='session'?'session':'libre'});
   if(source==='session'&&sessionStep()?.kind==='reading'&&sessionStep()?.id===id){
