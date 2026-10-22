@@ -1,8 +1,6 @@
 'use strict';
-// Prototype pedagogique : les regles ne sont pas un diagnostic et les contenus doivent etre valides.
-const KEY='appli4e-prototype-v1';
-const TODAY=()=>new Date().toISOString().slice(0,10);
-const DAY=86400000;
+const Engine=LearningEngine;
+const KEY='appli4e-learning-v2', LEGACY='appli4e-prototype-v1';
 const exercises=[
 {id:'o1',subject:'Français',topic:'Accord sujet-verbe',question:'Les élèves de la classe ___ à huit heures.',options:['arrive','arrivent','arrivons'],answer:1,why:'Le sujet est « les élèves » : plusieurs personnes. Le verbe prend -ent.',probe:'Quel est le sujet du verbe ?',probeOptions:['la classe','les élèves'],probeAnswer:1},
 {id:'o2',subject:'Français',topic:'Homophones',question:'Elle ___ oublié son carnet.',options:['a','à','as'],answer:0,why:'« a » est le verbe avoir. On peut dire « Elle avait oublié son carnet ».',probe:'Quel mot peut remplacer « a » ?',probeOptions:['avait','vers'],probeAnswer:0},
@@ -10,41 +8,180 @@ const exercises=[
 {id:'m1',subject:'Maths',topic:'Fractions',question:'Quelle fraction est égale à 3/4 ?',options:['3/8','6/8','4/6'],answer:1,why:'On multiplie le numérateur ET le dénominateur par 2 : 3/4 = 6/8.',probe:'Dans une fraction équivalente, on transforme :',probeOptions:['seulement le haut','le haut et le bas de la même façon'],probeAnswer:1},
 {id:'m2',subject:'Maths',topic:'Relatifs',question:'Quel nombre est le plus grand ?',options:['−7','−2','−5'],answer:1,why:'Sur la droite graduée, −2 est plus à droite que −5 et −7.',probe:'Sur la droite graduée, le plus grand est celui situé :',probeOptions:['à droite','à gauche'],probeAnswer:0},
 {id:'m3',subject:'Maths',topic:'Pourcentages',question:'Combien font 25 % de 80 ?',options:['10','20','25'],answer:1,why:'25 % = un quart ; un quart de 80 vaut 20.',probe:'25 %, c’est :',probeOptions:['un quart','la moitié'],probeAnswer:0},
-{id:'h1',subject:'Histoire-géo',topic:'Révolution française',question:'En quelle année a lieu la prise de la Bastille ?',options:['1789','1815','1848'],answer:0,why:'La Bastille est prise le 14 juillet 1789. Elle devient un symbole révolutionnaire.',probe:'La prise de la Bastille appartient :',probeOptions:['au XVIIIe siècle','au XXe siècle'],probeAnswer:0},
+{id:'h1',subject:'Histoire-géo',topic:'Les transports au XIXe siècle',question:'Quel transport se développe au XIXe siècle grâce à la vapeur ?',options:['Le train','L’avion de ligne','La fusée'],answer:0,why:'Les locomotives à vapeur permettent le développement du chemin de fer au XIXe siècle.',probe:'Une locomotive sert à :',probeOptions:['Tirer des wagons','Faire voler un avion'],probeAnswer:0},
 {id:'h2',subject:'Histoire-géo',topic:'Urbanisation',question:'Que signifie « urbanisation » ?',options:['Baisse du nombre de villes','Augmentation de la population urbaine','Disparition des transports'],answer:1,why:'L’urbanisation est l’augmentation de la part de population vivant en ville.',probe:'Le mot « urbain » concerne :',probeOptions:['la ville','la montagne'],probeAnswer:0}
 ];
-const readings=[
-{id:'r1',genre:'Mystère',title:'Le message effacé',time:5,question:'Pourquoi Lina revient-elle près du casier ?',options:['Elle a entendu sonner','Elle a remarqué un indice','Elle a perdu son livre'],answer:1,word:'furtif',definition:'rapide et discret, pour ne pas être remarqué',text:'À la fin des cours, Lina aperçut une feuille glissée sous son casier. Trois mots y étaient écrits : « Regarde derrière toi. »\n\nElle leva les yeux. Le couloir était vide, à l’exception d’une silhouette furtive qui disparaissait près des escaliers. Lina voulut la suivre, mais la feuille lui échappa des mains. Lorsqu’elle la ramassa, l’encre avait presque disparu.\n\nElle relut les trois mots. Une question la troublait : qui avait bien pu écrire ce message, et pourquoi fallait-il regarder derrière elle ?\n\nEn se retournant, elle remarqua enfin un détail : sur le mur, juste au-dessus de son casier, quelqu’un avait tracé une petite étoile bleue. Elle n’y avait jamais prêté attention auparavant.'},
-{id:'r2',genre:'Sciences',title:'Pourquoi le ciel paraît-il bleu ?',time:5,question:'Pourquoi voit-on davantage le bleu dans le ciel ?',options:['L’air produit de la peinture','La lumière bleue est davantage dispersée','L’océan colore l’atmosphère'],answer:1,word:'disperser',definition:'répartir ou envoyer dans plusieurs directions',text:'La lumière du Soleil nous paraît blanche. Pourtant, elle contient plusieurs couleurs. Lorsqu’elle traverse l’atmosphère, elle rencontre de minuscules particules et les molécules de l’air.\n\nCes molécules dispersent certaines couleurs plus fortement que d’autres. La lumière bleue est particulièrement diffusée dans différentes directions. C’est pour cette raison que, lorsque nous regardons le ciel loin du Soleil, nous voyons surtout du bleu.\n\nAu coucher du Soleil, la lumière traverse une couche d’atmosphère plus épaisse. Les couleurs bleues ont été davantage dispersées hors du trajet direct. Les rouges et les orangés deviennent alors plus visibles.\n\nAinsi, le ciel change de couleur selon le trajet de la lumière, et non parce que l’air possède une couleur propre.'},
-{id:'r3',genre:'Histoire',title:'Paris, juillet 1789',time:6,question:'Pourquoi les habitants sont-ils inquiets ?',options:['Le pain coûte cher','Une fête est annulée','La Seine a disparu'],answer:0,word:'pénurie',definition:'situation où quelque chose manque, souvent un produit nécessaire',text:'Paris, juillet 1789. La ville est agitée. Le prix du pain est élevé, et de nombreuses familles craignent la pénurie. Dans les rues, on discute de politique et des décisions du roi.\n\nLe 14 juillet, des habitants se dirigent vers la Bastille, une forteresse qui sert notamment de prison. Ils cherchent des armes et de la poudre. Après des affrontements, la forteresse est prise.\n\nCet événement prend une valeur symbolique considérable : il semble montrer que le pouvoir royal peut être contesté. La Révolution française ne se résume pas à cette seule journée, mais le 14 juillet en devient l’une des dates les plus connues.'}
-];
-function initial(){return {duration:10,history:[],reviews:{},reading:[],prefs:{},started:TODAY()}}
-let state;
-try{state={...initial(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{state=initial()}
-const save=()=>localStorage.setItem(KEY,JSON.stringify(state));
+const readings=window.APP_READINGS||[];
+let stored=null,legacy=null;
+try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
+try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
+const state=Engine.normalizeState(stored,legacy);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch{saveError=true}};
+let saveError=false;
+if(!stored)save();
 const root=document.getElementById('app');
 let route='accueil',activeId=null,mode='question',currentSubject='Français',readId=null;
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function card(inner,extra=''){return '<section class="card '+extra+'">'+inner+'</section>'}
-function head(k,title,sub=''){return '<div class="hero"><div class="eyebrow">'+k+'</div><h1>'+title+'</h1><p class="muted">'+sub+'</p></div>'}
-function btn(txt,act,cls=''){return '<button class="btn '+cls+'" data-action="'+act+'">'+esc(txt)+'</button>'}
-function days(n){return Date.now()+n*DAY}
-function mark(id,correct,kind='question'){let p=state.reviews[id]||{stage:0};let stage=correct?Math.min(5,p.stage+1):0;let intervals=[1/144,1,3,7,14,28];state.reviews[id]={stage,due:days(intervals[stage]),last:Date.now(),lastCorrect:correct};state.history.push({id,correct,kind,at:Date.now()});save()}
-function due(){return exercises.filter(e=>state.reviews[e.id]&&state.reviews[e.id].due<=Date.now())}
-function activity(id){activeId=id;mode='question';route='exercice';render()}
-function reading(id){readId=id;route='texte';render()}
-function home(){let n=due().length;let subject=exercises.filter(e=>e.subject==='Français')[0];return head('Un peu chaque jour','Une petite séance à ton rythme','Cinq, dix ou quinze minutes : c’est déjà utile.')+card('<div class="row"><div><div class="eyebrow">Ma séance</div><h2>Tu choisis le temps</h2></div><span class="pill">Sans chrono</span></div><div class="actions">'+[5,10,15].map(n=>btn(n+' min','duration:'+n,state.duration===n?'':'secondary')).join('')+'</div>','highlight')+card('<div class="item"><span class="symbol">▤</span><div><b>Une lecture à découvrir</b><div class="min">Lecture plaisir · 5 min</div></div></div><div class="actions">'+btn('Choisir une histoire','nav:lecture')+'</div>')+card('<div class="item"><span class="symbol">✎</span><div><b>Un petit défi de français</b><div class="min">Orthographe · 3 min</div></div></div><div class="actions">'+btn('Essayer','exercise:'+subject.id,'secondary')+'</div>')+card('<div class="item"><span class="symbol">↻</span><div><b>Mes rappels</b><div class="min">'+(n?n+' notion(s) à revoir':'Pas de révision urgente')+'</div></div></div><div class="actions">'+btn('Voir','nav:revisions','outline')+'</div>')+'<p class="muted">Tu peux aussi terminer ici. Il n’y a aucune séance à rattraper.</p>'}
-function library(){return head('Bibliothèque','Choisis ce qui t’intrigue','Tu peux lire sans répondre à des questions.')+readings.map(x=>card('<span class="pill">'+esc(x.genre)+'</span><h2 style="margin-top:14px">'+esc(x.title)+'</h2><div class="min">Environ '+x.time+' min</div><div class="actions">'+btn('Lire','read:'+x.id)+'</div>')).join('')}
-function reader(){let t=readings.find(x=>x.id===readId);if(!t)return library();let parts=esc(t.text).split(new RegExp('('+t.word+')','gi'));return head(t.genre,t.title,'Lis sans te presser. Aucun chronomètre.')+card('<div class="reader">'+parts.map(p=>p.toLowerCase()===t.word?'<button class="word" title="Voir le sens" data-action="define:'+t.id+'">'+p+'</button>':p).join('')+'</div><div id="wordbox"></div><div class="actions">'+btn('Terminer ma lecture','readDone:'+t.id)+btn('Retour aux lectures','nav:lecture','outline')+'</div>')}
-function afterReading(id){let t=readings.find(x=>x.id===id);return head('Lecture terminée','Tu as lu '+esc(t.title),'Tu peux t’arrêter ici. Une question est entièrement facultative.')+card('<h2>Comment était cette lecture ?</h2><div class="actions">'+['Pas pour moi','Ça allait','J’en lirais un autre'].map((s,i)=>btn(s,'rating:'+id+':'+i,'secondary')).join('')+'</div>')+card('<h2>Envie de vérifier ce que tu as retenu ?</h2>'+btn('Une question courte','readingQuiz:'+id)+ ' '+btn('Non merci','nav:lecture','outline'))}
-function quizReading(){let t=readings.find(x=>x.id===readId);return head('Une question','Qu’as-tu retenu ?')+card('<h2>'+esc(t.question)+'</h2><div class="choices">'+t.options.map((x,i)=>'<button class="choice" data-action="readingAnswer:'+t.id+':'+i+'">'+esc(x)+'</button>').join('')+'</div>')}
-function subjects(){return head('Mes matières','Choisis un domaine','Les exercices restent courts et les erreurs sont expliquées.')+['Français','Maths','Histoire-géo'].map(x=>card('<div class="row"><h2>'+x+'</h2><span class="pill">'+exercises.filter(e=>e.subject===x).length+' exercices</span></div><div class="actions">'+btn('Explorer','subject:'+x)+'</div>')).join('')}
-function subjectPage(){return head('Matières',currentSubject,'Choisis une petite activité.')+exercises.filter(e=>e.subject===currentSubject).map(e=>card('<h2>'+esc(e.topic)+'</h2><p class="muted">Une question, un retour clair et un rappel futur.</p>'+btn('Commencer','exercise:'+e.id))).join('')}
-function exercise(){let e=exercises.find(x=>x.id===activeId);if(!e)return subjects();let probe=mode==='probe';return head(e.subject,e.topic,probe?'Une petite étape pour mieux comprendre.':'Essaie, même si tu hésites.')+card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((o,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(o)+'</button>').join('')+'</div>')}
-function revisions(){let list=due(),seen=Object.keys(state.reviews).length;return head('Mémoire','À revoir','Quelques questions seulement, sans accumulation.')+(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+e.subject+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join(''):card('<h2>Rien d’urgent aujourd’hui</h2><p class="muted">Les '+seen+' notion(s) déjà rencontrée(s) reviendront progressivement.</p>'+btn('Choisir une matière','nav:matieres','secondary')))}
-function progress(){let count=state.history.filter(x=>x.correct).length,total=state.history.length,read=state.reading.length;return head('Mon chemin','Mes progrès','Ce qui compte, c’est ce que tu arrives progressivement à faire seule.')+card('<h2>Ce que tu as déjà fait</h2><div class="grid"><div><div class="eyebrow">Lectures terminées</div><h1>'+read+'</h1></div><div><div class="eyebrow">Réponses réussies</div><h1>'+count+'</h1></div></div><p class="muted">'+(total?'Tu as essayé '+total+' question(s). Chaque essai aide à identifier la prochaine étape.':'Commence par ce qui t’intéresse.')+'</p>')+card('<h2>Notions rencontrées</h2>'+exercises.filter(e=>state.reviews[e.id]).map(e=>'<div class="row"><p>'+esc(e.topic)+'</p><span class="pill">'+(state.reviews[e.id].stage>=3?'En consolidation':'À retrouver')+'</span></div>').join('')+(!Object.keys(state.reviews).length?'<p class="muted">Les notions apparaîtront ici après tes premiers exercices.</p>':''))}
-function feedback(correct,e,probing){const copy=correct?'Bien vu. '+e.why:probing?'Cette étape est difficile pour le moment. '+e.why:'Pas encore. '+e.why;root.innerHTML=head('On apprend','Une étape de plus')+card('<div class="feedback">'+esc(copy)+'</div><div class="actions">'+btn(correct?'Continuer':'Réessayer avec un indice',correct?'nav:matieres':'probe:'+e.id)+btn('Arrêter ici','nav:accueil','outline')+'</div>');wire()}
-function render(){const html=route==='accueil'?home():route==='lecture'?library():route==='texte'?reader():route==='apreslecture'?afterReading(readId):route==='lecturequiz'?quizReading():route==='matieres'?subjects():route==='matiere'?subjectPage():route==='exercice'?exercise():route==='revisions'?revisions():progress();root.innerHTML=html;document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));wire()}
-function wire(){document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));}
-function handle(s){let a=s.split(':'),k=a[0];if(k==='nav'){route=a[1];render()}else if(k==='duration'){state.duration=+a[1];save();render()}else if(k==='exercise')activity(a[1]);else if(k==='subject'){currentSubject=a.slice(1).join(':');route='matiere';render()}else if(k==='read')reading(a[1]);else if(k==='define'){let t=readings.find(x=>x.id===a[1]),b=document.getElementById('wordbox');if(b)b.innerHTML='<div class="feedback"><b>'+esc(t.word)+'</b> — '+esc(t.definition)+'</div>'}else if(k==='readDone'){readId=a[1];state.reading.push({id:readId,at:Date.now()});save();route='apreslecture';render()}else if(k==='rating'){state.prefs[a[1]]=+a[2];save();render()}else if(k==='readingQuiz'){readId=a[1];route='lecturequiz';render()}else if(k==='readingAnswer'){let t=readings.find(x=>x.id===a[1]),ok=+a[2]===t.answer;state.history.push({id:t.id,correct:ok,kind:'reading',at:Date.now()});save();root.innerHTML=head('Compréhension',ok?'Bien trouvé':'Une occasion de comprendre')+card('<p>'+esc(ok?'Tu as retrouvé l’information essentielle.':'Relis le texte si tu en as envie ; tu trouveras l’indice dans les phrases.')+'</p>'+btn('Terminer','nav:lecture'));wire()}else if(k==='answer'){let e=exercises.find(x=>x.id===activeId);let probing=mode==='probe';let ok=+a[1]===(probing?e.probeAnswer:e.answer);mark(e.id,ok,probing?'probe':'question');feedback(ok,e,probing)}else if(k==='probe'){mode='probe';render()}}
-document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>{route=b.dataset.nav;render()}));window.addEventListener('hashchange',()=>{route=location.hash.replace('#','')||'accueil';render()});render();
+let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const card=(inner,extra='')=>'<section class="card '+extra+'">'+inner+'</section>';
+const head=(k,title,sub='')=>'<div class="hero"><div class="eyebrow">'+esc(k)+'</div><h1>'+esc(title)+'</h1><p class="muted">'+esc(sub)+'</p></div>';
+const btn=(label,action,cls='')=>'<button class="btn '+cls+'" data-action="'+esc(action)+'">'+esc(label)+'</button>';
+function findExercise(id){return exercises.find(x=>x.id===id)}
+function findReading(id){return readings.find(x=>x.id===id)}
+function actionRow(){return saveError?'<p class="muted">La sauvegarde locale est indisponible sur ce navigateur.</p>':''}
+function due(){return Engine.getDue(state,exercises)}
+function sessionStep(){return Engine.currentStep(state)}
+function openExercise(id,origin='libre',help=false){activeId=id;source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
+function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render()}
+function goSessionStep(){
+ const step=sessionStep();
+ if(!step){route='accueil';render();return}
+ if(step.kind==='reading')openReading(step.id,'session');
+ else openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));
+}
+function sessionHome(){
+ const session=state.activeSession;
+ if(!session)return '';
+ const step=sessionStep(),completed=session.completed.length,planned=session.plan.length;
+ return card('<div class="row"><div><span class="pill">Séance en cours</span><h2 style="margin-top:12px">À ton rythme</h2></div><span class="min">'+completed+'/'+planned+' activités</span></div><div class="bar" aria-label="Avancement de la séance"><div style="width:'+Math.round(100*completed/planned)+'%"></div></div><p class="muted">Tu peux reprendre là où tu t’es arrêtée.</p><div class="actions">'+btn('Reprendre','resume')+btn('Terminer pour aujourd’hui','endSession','outline')+'</div>','highlight');
+}
+function home(){
+ const n=due().length;
+ return head('Un peu chaque jour','Une petite séance à ton rythme','Cinq, dix ou quinze minutes, sans chronomètre ni obligation.')
+ +(state.activeSession?sessionHome():card('<div class="row"><div><div class="eyebrow">Ma séance</div><h2>Tu choisis le temps</h2></div><span class="pill">Sans chrono</span></div><div class="actions">'+[5,10,15].map(n=>btn(n+' min','duration:'+n,state.duration===n?'':'secondary')).join('')+'</div><p class="muted">Des rappels utiles, de petits défis et parfois une histoire.</p>'+btn('Commencer ma séance','start'),'highlight'))
+ +card('<div class="item"><span class="symbol">▤</span><div><b>Une histoire à découvrir</b><div class="min">Fantastique, musique, créativité…</div></div></div><div class="actions">'+btn('Choisir une lecture','nav:lecture','secondary')+'</div>')
+ +card('<div class="item"><span class="symbol">↻</span><div><b>À retrouver en mémoire</b><div class="min">'+(n?n+' notion(s) à revoir':'Rien d’urgent aujourd’hui')+'</div></div></div><div class="actions">'+btn('Voir les rappels','nav:revisions','outline')+'</div>')
+ +'<p class="muted">Pas de retard à rattraper si tu fais une pause.</p>'+actionRow();
+}
+function sessionView(){
+ const sess=state.activeSession;
+ if(!sess)return head('Séance','Bien joué','Ta séance est terminée.')+card(btn('Retour à l’accueil','nav:accueil'));
+ const step=sessionStep();if(!step)return home();
+ const item=step.kind==='reading'?findReading(step.id):findExercise(step.id);
+ if(!item)return head('Séance','Activité introuvable')+card(btn('Terminer la séance','endSession'));
+ return head('Ma séance','Étape '+(sess.cursor+1)+' sur '+sess.plan.length,'Durée indicative : '+sess.duration+' min. Aucune limite de temps.')
+ +card('<span class="pill">'+(step.kind==='reading'?'Lecture plaisir':step.source==='review'?'Rappel mémoire':'Petit défi')+'</span><h2 style="margin-top:14px">'+esc(item.title||item.topic)+'</h2><p class="muted">'+(step.kind==='reading'?'Un moment de lecture, sans question obligatoire.':esc(item.subject)+' · Environ 2 min')+'</p>'+btn('C’est parti','doStep')+' '+btn('Arrêter ici','endSession','outline'),'highlight');
+}
+function library(){
+ const series=readings.filter(r=>r.seriesId==='solstice');
+ const rest=readings.filter(r=>r.seriesId!=='solstice');
+ function entry(r){const visited=state.reading.some(x=>x.id===r.id);
+ return card('<div class="row"><span class="pill">'+(r.seriesId?'Épisode '+r.episode+'/'+series.length:esc(r.genre))+'</span><span class="min">Environ '+r.time+' min</span></div><h2 style="margin-top:12px">'+esc(r.title)+'</h2><div class="actions">'+btn(visited?'Relire':'Découvrir','read:'+r.id)+'</div>')}
+ return head('Bibliothèque','Et si tu avais envie de la suite ?','Aucun questionnaire obligatoire. Choisis ce qui te plaît.')
+ +card('<h2>Les secrets de l’Académie Solstice</h2><p class="muted">Magie, amitié, musique et mystères légers.</p>','highlight')
+ +series.map(entry).join('')+'<h2 style="margin-top:25px">D’autres histoires</h2>'+rest.map(entry).join('');
+}
+function reader(){
+ const t=findReading(readId);if(!t)return library();
+ const vocab=t.words||[{term:t.word,definition:t.definition}];
+ const parts=t.text.split(new RegExp('('+vocab.map(v=>v.term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi'));
+ const body=parts.map(p=>{const i=vocab.findIndex(w=>w.term.toLocaleLowerCase('fr')===p.toLocaleLowerCase('fr'));return i<0?esc(p):'<button class="word" data-action="define:'+t.id+':'+i+'">'+esc(p)+'</button>'}).join('');
+ return head(t.genre,t.title,'Lis sans te presser. Touche un mot souligné pour voir son sens.')
+ +card('<div class="reader">'+body+'</div><div id="wordbox" aria-live="polite"></div><div class="actions">'+btn('J’ai terminé','readDone:'+t.id)+btn(source==='session'?'Pause de séance':'Retour aux histoires',source==='session'?'nav:seance':'nav:lecture','outline')+'</div>');
+}
+function afterReading(id){
+ const t=findReading(id);if(!t)return library();
+ const next=t.nextId&&findReading(t.nextId);
+ return head('Lecture terminée','Tu as lu '+t.title,'Tu peux t’arrêter là. Aucune question n’est obligatoire.')
+ +card('<h2>Cette histoire t’a plu ?</h2><div class="actions">'+['Pas pour moi','Ça allait','J’en lirais un autre'].map((x,i)=>btn(x,'rating:'+id+':'+i,state.prefs[id]===i?'':'secondary')).join('')+'</div>')
+ +(next?card('<h2>La suite : '+esc(next.title)+'</h2><p class="muted">Tu pourras la lire une prochaine fois.</p>'+btn('Lire la suite','read:'+next.id,'secondary')):'')
+ +card('<h2>Et maintenant ?</h2><div class="actions">'+btn('Une question facultative','readingQuiz:'+id,'secondary')+btn('Terminer ici',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline')+'</div>');
+}
+function readingQuiz(){const t=findReading(readId);return head('Si tu en as envie','Une petite question','Tu peux aussi passer sans répondre.')+card('<h2>'+esc(t.question)+'</h2><div class="choices">'+t.options.map((x,i)=>'<button class="choice" data-action="readingAnswer:'+t.id+':'+i+'">'+esc(x)+'</button>').join('')+'</div>'+btn('Passer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline'))}
+function subjects(){return head('Mes matières','Choisis une matière','Un essai, un conseil précis, et des rappels plus tard.')
+ +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+subject+'</h2><span class="pill">'+exercises.filter(x=>x.subject===subject).length+' défis</span></div>'+btn('Explorer','subject:'+subject))).join('')}
+function subjectPage(){return head('Mes matières',currentSubject,'À toi de choisir.')
+ +exercises.filter(e=>e.subject===currentSubject).map(e=>card('<h2>'+esc(e.topic)+'</h2>'+btn('Essayer','exercise:'+e.id))).join('')}
+function exercise(){
+ const e=findExercise(activeId);if(!e)return subjects();
+ const probe=mode==='probe';
+ return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
+ +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
+}
+function revisions(){
+ const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
+ +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
+ :card('<h2>Rien d’urgent aujourd’hui</h2><p class="muted">Les notions reviendront à intervalles progressivement plus longs.</p>'+btn('Choisir une matière','nav:matieres','secondary')));
+}
+function progress(){
+ const summary=Engine.recap(state,exercises);
+ return head('Mon chemin','Mes progrès','On cherche à comprendre ce qui devient plus facile, sans comparaison.')
+ +card('<div class="grid"><div><div class="eyebrow">Histoires découvertes</div><h1>'+summary.readings+'</h1></div><div><div class="eyebrow">Séances terminées</div><h1>'+summary.sessions+'</h1></div><div><div class="eyebrow">Réussites autonomes</div><h1>'+summary.independentSuccesses+'</h1></div><div><div class="eyebrow">Réussites avec aide</div><h1>'+summary.assistedSuccesses+'</h1></div></div>')
+ +card('<h2>Les notions en chemin</h2>'+exercises.filter(e=>state.reviews[e.id]).map(e=>{
+ const r=state.reviews[e.id],label=r.stage>=3?'En consolidation':r.lastOutcome==='avec aide'?'Avec aide':'À retrouver';
+ return '<div class="row"><p>'+esc(e.topic)+'</p><span class="pill">'+label+'</span></div>';
+ }).join('')+(!summary.seen?'<p class="muted">Les notions apparaîtront après tes premiers défis.</p>':''));
+}
+function resultView(){
+ const x=feedbackView;if(!x)return home();
+ return head('On apprend',x.correct?'Bien vu !':'On continue à comprendre','Une erreur donne une information utile.')
+ +card('<div class="feedback">'+esc(x.message)+'</div><div class="actions">'
+ +(x.continue?btn('Continuer la séance','nextStep'):x.correct?btn('Choisir un autre défi','nav:matieres'):btn('Une aide pour comprendre','probe:'+x.id))
+ +btn('Arrêter ici',x.continue?'endSession':'nav:accueil','outline')+'</div>');
+}
+function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as avancé à ton rythme.')
+ +card('<h2>'+((lastSummary&&lastSummary.completed)||0)+' activité(s) réalisées</h2><p class="muted">Tu peux revenir quand tu en auras envie. Aucune absence n’est pénalisée.</p>'+btn('Retour à l’accueil','nav:accueil'))}
+function render(){
+ const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
+ matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView};
+ root.innerHTML=(pages[route]||home)();
+ document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
+ document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
+}
+function finishCurrentStep(){
+ const step=sessionStep();if(!step){route='accueil';render();return}
+ const wasLast=state.activeSession.cursor===state.activeSession.plan.length-1;
+ const now=new Date();
+ if(!Engine.finishStep(state,step.kind,step.id,{now})){route='seance';render();return}
+ save();if(wasLast){lastSummary=state.sessions[state.sessions.length-1];route='fin';render()}else{route='seance';render()}
+}
+function submitAnswer(index){
+ const e=findExercise(activeId);if(!e)return;
+ const probing=mode==='probe',correct=index===(probing?e.probeAnswer:e.answer);
+ const origin=source==='session'?'session':'libre';
+ if(probing)questionHelped=true;
+ Engine.recordAttempt(state,e.id,{correct,assisted:questionHelped,kind:probing?'probe':'question',source:origin});
+ if(!correct && source==='session' && state.activeSession)state.activeSession.assistedItems[e.id]=true;
+ save();
+ feedbackView={id:e.id,correct,message:(correct?(questionHelped?'Tu as réussi avec un indice. ':'Tu as réussi seule. '):'Cette réponse ne convient pas encore. ')+e.why,
+ continue:source==='session'&&correct,probing};
+ route='resultat';render();
+}
+function handle(raw){
+ const p=raw.split(':'),kind=p[0],id=p[1];
+ if(kind==='nav'){route=id;render();return}
+ if(kind==='duration'){if(!state.activeSession && Engine.DURATIONS.includes(+id)){state.duration=+id;save()}render();return}
+ if(kind==='start'){Engine.beginSession(state,exercises,readings);save();route='seance';render();return}
+ if(kind==='resume'){route='seance';render();return}
+ if(kind==='doStep'){goSessionStep();return}
+ if(kind==='nextStep'){finishCurrentStep();return}
+ if(kind==='endSession'){lastSummary=Engine.endSession(state,{partial:true});save();route='fin';render();return}
+ if(kind==='exercise'){openExercise(id);return}
+ if(kind==='subject'){currentSubject=p.slice(1).join(':');route='matiere';render();return}
+ if(kind==='read'){openReading(id);return}
+ if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
+ if(kind==='readDone'){
+  readingSessionCompleted=false;
+  Engine.recordReading(state,id,{source:source==='session'?'session':'libre'});
+  if(source==='session'&&sessionStep()?.kind==='reading'&&sessionStep()?.id===id){
+    // Lecture terminée : la prochaine étape est seulement proposée après réflexion.
+    readingSessionCompleted=true;
+    const current=state.activeSession;
+    current.completed.push({kind:'reading',id,at:Date.now(),outcome:'complete'});
+    current.cursor++;
+    if(current.cursor>=current.plan.length){lastSummary=Engine.endSession(state,{partial:false});source='libre'}
+  }
+  save();readId=id;route='apreslecture';render();return;
+ }
+ if(kind==='rating'){state.prefs[id]=Number(p[2]);save();render();return}
+ if(kind==='readingQuiz'){readId=id;route='lecturequiz';render();return}
+ if(kind==='readingAnswer'){
+ const r=findReading(id),correct=Number(p[2])===r.answer;Engine.recordAttempt(state,id,{correct,kind:'reading',source:'libre'});save();
+ root.innerHTML=head('Compréhension',correct?'Bien trouvé !':'Une occasion de relire')+card('<p>'+esc(correct?'Tu as retrouvé une information importante.':'Relis le passage qui raconte ce moment si tu en as envie.')+'</p>'+btn('Continuer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture'));root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));return;
+ }
+ if(kind==='answer'){submitAnswer(Number(id));return}
+ if(kind==='probe'){questionHelped=true;mode='probe';route='exercice';render();return}
+}
+document.querySelectorAll('[data-nav]').forEach(el=>el.addEventListener('click',()=>{route=el.dataset.nav;render()}));
+document.querySelector('.brand')?.addEventListener('click',()=>{route='accueil';render()});
+render();
