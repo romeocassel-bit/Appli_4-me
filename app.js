@@ -13,13 +13,19 @@ const exercises=[
 ];
 const readings=window.APP_READINGS||[];
 const orthography=window.ORTHOGRAPHY_DATA||{questions:[],dictations:[]};
-exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS);
+exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS,...MathJourney.TOPICS);
+// Anciennes questions uniques conservées uniquement pour les progrès et les séances déjà commencées.
+// Les nouvelles séances et le catalogue exposent les parcours multiquestions et les dictées.
+const activeExercises=exercises.filter(e=>['dictation','challenge','practice','journey'].includes(e.type)||e.subject==='Histoire-géo');
 let stored=null,legacy=null;
 try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
 try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
 const state=Engine.normalizeState(stored,legacy);
 state.conjugationHistory=Array.isArray(stored?.conjugationHistory)?stored.conjugationHistory:[];
 state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHistory:[];
+state.mathJourneyHistory=Array.isArray(stored?.mathJourneyHistory)?stored.mathJourneyHistory:[];
+state.mathJourneyProgress=stored?.mathJourneyProgress&&typeof stored.mathJourneyProgress==='object'?stored.mathJourneyProgress:{};
+state.mathJourney=stored?.mathJourney&&MathJourney.TOPICS.some(t=>t.id===stored.mathJourney.topicId)?stored.mathJourney:null;
 const personalizationMigrated=PersonalizationEngine.hydrate(state,{conjugation:ConjugationEngine,practice:PracticeBank});
 state.practiceChallenge=stored?.practiceChallenge&&PracticeBank.TOPICS.some(t=>t.id===stored.practiceChallenge.topicId)?stored.practiceChallenge:null;
 state.challenge=stored?.challenge&&Array.isArray(stored.challenge.questions)&&ConjugationEngine.TOPICS.some(t=>t.id===stored.challenge.topicId)?stored.challenge:null;
@@ -38,7 +44,7 @@ const btn=(label,action,cls='')=>'<button class="btn '+cls+'" data-action="'+esc
 function findExercise(id){return exercises.find(x=>x.id===id)}
 function findReading(id){return readings.find(x=>x.id===id)}
 function actionRow(){return saveError?'<p class="muted">La sauvegarde locale est indisponible sur ce navigateur.</p>':''}
-function due(){return Engine.getDue(state,exercises)}
+function due(){return Engine.getDue(state,activeExercises)}
 function sessionStep(){return Engine.currentStep(state)}
 function openExercise(id,origin='libre',help=false){mathInput='';mathFeedback=null;mathMistakes=0;mathPrereq=null;mathShowChoices=false;activeId=id;dictationResult=null;dictationText='';source=origin;mode='question';questionHelped=help;feedbackView=null;route='exercice';render()}
 function openReading(id,origin='libre'){readId=id;source=origin;readingSessionCompleted=false;route='texte';render()}
@@ -46,7 +52,7 @@ function goSessionStep(){
  const step=sessionStep();
  if(!step){route='accueil';render();return}
  if(step.kind==='reading')openReading(step.id,'session');
- else { const c=findExercise(step.id);if(c?.type==='practice'&&state.practiceChallenge?.topicId===step.id&&state.practiceChallenge.sessionId===state.activeSession.id&&!state.practiceChallenge.finished){openExercise(step.id,'session');return}if(c?.type==='challenge'&&state.challenge?.topicId===step.id&&state.challenge.sessionId===state.activeSession.id&&!state.challenge.finished){openExercise(step.id,'session');return}openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));}
+ else { const c=findExercise(step.id);if(c?.type==='journey'&&state.mathJourney?.topicId===step.id&&state.mathJourney.sessionId===state.activeSession.id&&!state.mathJourney.finished){openExercise(step.id,'session');return}if(c?.type==='practice'&&state.practiceChallenge?.topicId===step.id&&state.practiceChallenge.sessionId===state.activeSession.id&&!state.practiceChallenge.finished){openExercise(step.id,'session');return}if(c?.type==='challenge'&&state.challenge?.topicId===step.id&&state.challenge.sessionId===state.activeSession.id&&!state.challenge.finished){openExercise(step.id,'session');return}openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));}
 }
 function sessionHome(){
  const session=state.activeSession;
@@ -99,15 +105,43 @@ function afterReading(id){
  +card('<h2>Et maintenant ?</h2><div class="actions">'+btn('Une question facultative','readingQuiz:'+id,'secondary')+btn('Terminer ici',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline')+'</div>');
 }
 function readingQuiz(){const t=findReading(readId);return head('Si tu en as envie','Une petite question','Tu peux aussi passer sans répondre.')+card('<h2>'+esc(t.question)+'</h2><div class="choices">'+t.options.map((x,i)=>'<button class="choice" data-action="readingAnswer:'+t.id+':'+i+'">'+esc(x)+'</button>').join('')+'</div>'+btn('Passer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline'))}
-function subjects(){return head('Mes matières','Choisis une matière','Un essai, un conseil précis, et des rappels plus tard.')
- +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+subject+'</h2><span class="pill">'+exercises.filter(x=>x.subject===subject).length+' défis</span></div>'+btn('Explorer','subject:'+subject))).join('')}
-function subjectPage(){return head('Mes matières',currentSubject,'À toi de choisir.')
- +exercises.filter(e=>e.subject===currentSubject).map(e=>card('<h2>'+esc(e.topic)+'</h2>'+btn('Essayer','exercise:'+e.id))).join('')}
+function subjects(){return head('Mes matières','Choisis une matière','Des parcours progressifs et des défis à plusieurs questions.')
+ +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+esc(subject)+'</h2><span class="pill">'+activeExercises.filter(x=>x.subject===subject).length+' activités</span></div>'+btn('Explorer','subject:'+subject))).join('')}
+function activityCard(e){
+ const types={
+  journey:{name:'3 niveaux',description:'Prérequis, automatismes puis problème en trois étapes.',action:'Découvrir le parcours'},
+  practice:{name:'3 à 8 questions',description:'Choisir une série de 3, 5 ou 8 questions variées.',action:'Choisir une série'},
+  challenge:{name:'3 à 8 questions',description:'Plusieurs phrases et plusieurs temps pour s’entraîner.',action:'Choisir une série'},
+  dictation:{name:'Mini-dictée',description:'Écouter, écrire, puis comparer avec une correction.',action:'Faire la dictée'}
+ };
+ const info=types[e.type]||{name:'1 question',description:'Petite question de découverte.',action:'Essayer'};
+ return card('<div class="row"><div><h2>'+esc(e.topic)+'</h2><p class="muted">'+esc(info.description)+'</p></div><span class="pill">'+esc(info.name)+'</span></div><div class="actions">'+btn(info.action,'exercise:'+e.id)+'</div>');
+}
+function subjectSection(name,description,items){
+ return items.length?'<div class="subject-section"><h2>'+esc(name)+'</h2><p class="muted">'+esc(description)+'</p>'+items.map(activityCard).join('')+'</div>':'';
+}
+function subjectPage(){
+ const items=activeExercises.filter(e=>e.subject===currentSubject);
+ if(currentSubject==='Maths'){
+  return head('Mes matières','Maths','Choisis des automatismes ou un parcours en trois niveaux.')
+   +subjectSection('Parcours guidés','Prérequis → automatismes → problèmes à plusieurs étapes.',items.filter(e=>e.type==='journey'))
+   +subjectSection('Séries d’automatismes','Plusieurs questions par défi. Pas de question unique.',items.filter(e=>e.type==='practice'));
+ }
+ if(currentSubject==='Français'){
+  return head('Mes matières','Français','Plusieurs exemples par notion et des mini-dictées.')
+   +subjectSection('Orthographe','Accords, homophones et règles à retrouver.',items.filter(e=>e.type==='practice'))
+   +subjectSection('Choisis ton temps de conjugaison','Présent, imparfait, futur simple ou passé composé. Tu peux aussi mélanger les temps.',items.filter(e=>e.type==='challenge'))
+   +subjectSection('Mini-dictées','Une phrase complète à écouter puis à écrire.',items.filter(e=>e.type==='dictation'));
+ }
+ return head('Mes matières',currentSubject,'De courtes questions pour découvrir une notion.')
+  +subjectSection('Questions de découverte','Ces activités contiennent encore une seule question.',items);
+}
 function exercise(){
  const e=findExercise(activeId);if(!e)return subjects();
  if(e.type==='dictation')return dictationView(e);
  if(e.type==='challenge')return conjugationView(e);
  if(e.type==='practice')return practiceView(e);
+ if(e.type==='journey')return mathJourneyView(e);
  const probe=mode==='probe';
  return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
  +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
@@ -142,9 +176,10 @@ function checkDictation(){
 function conjugationView(topic){
  const challenge=state.challenge?.topicId===topic.id?state.challenge:null;
  if(!challenge||challenge.finished){
-  const choices=[3,5,8].map(n=>btn(n+' questions','challengeStart:'+topic.id+':'+n,n===5?'':'secondary')).join('');
-  return head('Conjugaison',topic.topic,'Choisis une série courte. Les phrases varient d’une séance à l’autre.')
-   +card('<span class="pill">Présent · Imparfait · Futur · Passé composé</span><h2 style="margin-top:14px">Combien de questions ?</h2><div class="actions">'+choices+'</div><p class="muted">Sans chronomètre. Tu peux interrompre et reprendre le défi.</p>');
+  const recommended=ConjugationEngine.recommendedLevel(state,topic.id);
+  const levels=ConjugationEngine.LEVELS.map(l=>'<div class="journey-level"><b>'+esc(l.label)+(l.key===recommended?' · conseillé':'')+'</b><p class="muted">'+esc(l.description)+'</p><div class="actions">'+[3,5,8].map(n=>btn(n+' questions','challengeStart:'+topic.id+':'+n+':'+l.key,n===5?'':'secondary')).join('')+'</div></div>').join('');
+  return head('Conjugaison',topic.topic,'Choisis ton niveau et la longueur du défi.')
+   +card('<p class="muted">Les trois niveaux sont accessibles librement. Aucun classement.</p>'+levels+'<p class="muted">Sans chronomètre, avec pause et reprise.</p>');
  }
  const q=ConjugationEngine.current(challenge);
  if(!q)return head('Conjugaison','Défi terminé')+card(btn('Voir mon bilan','challengeNext'));
@@ -184,12 +219,13 @@ function completeConjugation(){
  save();
 }
 function handleConjugation(p){
- const kind=p[0],topic=findExercise(p[1]);
+ const kind=p[0],topic=findExercise(p.slice(1,3).join(':'));
  if(kind==='challengeStart'){
   if(!topic||topic.type!=='challenge')return;
-  let count=[3,5,8].includes(+p[2])?+p[2]:5;
+  let count=[3,5,8].includes(+p[3])?+p[3]:5;
   if(source==='session')count=3;
-  state.challenge=ConjugationEngine.create(state,topic.id,count,source,state.activeSession?.id||null);
+  const level=ConjugationEngine.LEVELS.some(l=>l.key===p[4])?p[4]:'auto';
+  state.challenge=ConjugationEngine.create(state,topic.id,count,source,state.activeSession?.id||null,level);
   save();render();return;
  }
  const c=state.challenge;if(!c)return;
@@ -303,18 +339,86 @@ function handleMath(kind){
  }
 }
 
+
+function mathJourneyView(topic){
+ const c=state.mathJourney?.topicId===topic.id?state.mathJourney:null;
+ if(!c||c.finished){
+  const suggested=MathJourney.suggestedLevel(state,topic.id);
+  const labels=MathJourney.LEVELS;
+  return head('Maths · Parcours 4e',topic.topic,topic.subtitle)
+   +card('<p class="muted">Trois niveaux courts. Tu peux refaire chaque niveau ou passer à un autre.</p>'
+   +labels.map(level=>'<div class="journey-level"><b>'+esc(level.label)+'</b><p class="muted">'+esc(level.description)+'</p>'
+     +btn(level.id===suggested?'Commencer ici':'Essayer ce niveau','journeyStart:'+topic.id+':'+level.id,level.id===suggested?'':'secondary')+'</div>').join(''));
+ }
+ const q=MathJourney.current(c),done=c.answers.find(x=>x.atIndex===c.cursor);
+ if(!q)return head('Maths','Parcours terminé')+card(btn('Voir mon bilan','journeyNext'));
+ const level=MathJourney.LEVELS.find(x=>x.id===c.level);
+ return head('Maths · '+esc(level.label),topic.topic,'Étape '+(c.cursor+1)+' sur '+c.questions.length)
+ +card('<span class="pill">'+esc(level.label)+'</span>'
+ +(q.context?'<p class="muted">'+esc(q.context)+'</p>':'')
+ +'<h2>'+esc(q.question)+'</h2>'
+ +(done?'<div class="feedback">'+(done.skipped?'Tu pourras y revenir.':done.assisted?'Réponse retrouvée avec aide.':'Réponse trouvée sans aide.')
+    +'<p>'+esc(q.method)+'</p><p><b>Réponse : '+esc(q.expectedDisplay)+'</b></p></div><div class="actions">'+btn('Étape suivante','journeyNext')+'</div>'
+ :'<label class="field-label" for="journey-input">Ma réponse</label><input id="journey-input" type="text" inputmode="decimal" autocomplete="off" value="'+esc(c.draft||'')+'" placeholder="Nombre ou fraction (ex. 3/4)">'
+    +(c.feedback?'<div class="feedback" role="status">'+esc(c.feedback)+'</div>':'')
+    +(c.hintShown?'<p class="muted">Indice : '+esc(q.hint)+'</p>':'')
+    +'<div class="actions">'+btn('Vérifier','journeyCheck')+btn('Un indice','journeyHint','secondary')+btn('Passer','journeySkip','outline')+'</div><div class="actions">'+btn('Faire une pause','nav:matieres','outline')+'</div>'));
+}
+function journeyEnd(){
+ const c=state.mathJourney;if(!c)return home();
+ const summary=MathJourney.summary(c),topic=findExercise(c.topicId);
+ return head('Maths','Ton niveau est terminé','L’objectif est de comprendre la méthode, pas d’aller vite.')
+ +card('<h2>'+summary.correct+' réponses trouvées sur '+summary.total+'</h2><p>'+summary.autonomous+' sans aide · '+summary.helped+' avec aide · '+summary.skipped+' passée(s)</p>'
+ +'<p class="muted">'+(summary.successful?'Tu peux découvrir le niveau suivant.':'Tu peux refaire ce niveau avec de nouveaux nombres.')+'</p>'
+ +'<div class="actions">'+btn('Continuer le parcours','journeyReset')+btn('Retour aux matières','nav:matieres','outline')+'</div>');
+}
+function finishJourney(){
+ const c=state.mathJourney;if(!c?.finished||c.recorded)return;
+ const score=MathJourney.recordStage(state,c);
+ Engine.recordAttempt(state,c.topicId,{correct:score.successful,assisted:!score.successful,kind:'question',source:c.origin});
+ if(c.origin==='session'&&state.activeSession&&sessionStep()?.id===c.topicId){
+  const wasLast=state.activeSession.cursor===state.activeSession.plan.length-1;
+  Engine.finishStep(state,'exercise',c.topicId);
+  if(wasLast)lastSummary=state.sessions[state.sessions.length-1];
+ }
+ save();
+}
+function handleJourney(parts){
+ const kind=parts[0];
+ if(kind==='journeyStart'){
+  const topic=findExercise(parts[1]),level=parts[2];
+  if(topic?.type!=='journey')return;
+  state.mathJourney=MathJourney.create(state,topic.id,level,source,state.activeSession?.id||null);
+  save();render();return;
+ }
+ const c=state.mathJourney;if(!c)return;
+ if(kind==='journeyReset'){const id=c.topicId;state.mathJourney=null;activeId=id;source='libre';route='exercice';save();render();return}
+ if(c.finished)return;
+ if(kind==='journeyHint'){c.hintShown=true;c.feedback=MathJourney.current(c)?.hint||'';save();render();return}
+ if(kind==='journeyCheck'){
+  const input=document.getElementById('journey-input');if(input)c.draft=input.value;
+  const result=MathJourney.submit(c,c.draft);
+  if(!result.valid)c.feedback=result.reason;
+  save();render();return;
+ }
+ if(kind==='journeySkip'){MathJourney.submit(c,'',true);save();render();return}
+ if(kind==='journeyNext'){
+  if(MathJourney.advance(c)){if(c.finished){finishJourney();route='journeyBilan'}save();render()}return;
+ }
+}
+
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
  +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
  :card('<h2>Rien d’urgent aujourd’hui</h2><p class="muted">Les notions reviendront à intervalles progressivement plus longs.</p>'+btn('Choisir une matière','nav:matieres','secondary')));
 }
 function progress(){
- const summary=Engine.recap(state,exercises);
+ const summary=Engine.recap(state,activeExercises);
  const detailed=PersonalizationEngine.report(state,[...ConjugationEngine.TOPICS,...PracticeBank.TOPICS]).filter(x=>x.attempts).slice(0,12);
  return head('Mon chemin','Mes progrès','On cherche à comprendre ce qui devient plus facile, sans comparaison.')
  +card('<div class="grid"><div><div class="eyebrow">Histoires découvertes</div><h1>'+summary.readings+'</h1></div><div><div class="eyebrow">Séances terminées</div><h1>'+summary.sessions+'</h1></div><div><div class="eyebrow">Réussites autonomes</div><h1>'+summary.independentSuccesses+'</h1></div><div><div class="eyebrow">Réussites avec aide</div><h1>'+summary.assistedSuccesses+'</h1></div></div>')
  +card('<h2>Compétences travaillées</h2>'+(detailed.length?detailed.map(x=>'<div class="row"><div><b>'+esc(x.title)+'</b><div class="min">'+x.independent+' sans indice · '+x.errors+' erreurs'+(x.weak.length?' · À revoir : '+esc(x.weak.map(w=>w.label).join(', ')):'')+'</div></div><span class="pill">'+esc(x.status.label)+'</span></div>').join(''):'<p class="muted">Les compétences apparaîtront après tes premiers défis.</p>'))
- +card('<h2>Les notions en chemin</h2>'+exercises.filter(e=>state.reviews[e.id]).map(e=>{
+ +card('<h2>Les notions en chemin</h2>'+activeExercises.filter(e=>state.reviews[e.id]).map(e=>{
  const r=state.reviews[e.id],label=r.stage>=3?'En consolidation':r.lastOutcome==='avec aide'?'Avec aide':'À retrouver';
  return '<div class="row"><p>'+esc(e.topic)+'</p><span class="pill">'+label+'</span></div>';
  }).join('')+(!summary.seen?'<p class="muted">Les notions apparaîtront après tes premiers défis.</p>':''));
@@ -330,10 +434,12 @@ function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as
  +card('<h2>'+((lastSummary&&lastSummary.completed)||0)+' activité(s) réalisées</h2><p class="muted">Tu peux revenir quand tu en auras envie. Aucune absence n’est pénalisée.</p>'+btn('Retour à l’accueil','nav:accueil'))}
 function render(){
  const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
- matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd};
+ matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd,journeyBilan:journeyEnd};
  root.innerHTML=(pages[route]||home)();
  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
+ const input=document.getElementById('journey-input');
+ if(input)input.addEventListener('input',()=>{if(state.mathJourney&&!state.mathJourney.finished){state.mathJourney.draft=input.value.slice(0,100);save()}});
 }
 function finishCurrentStep(){
  const step=sessionStep();if(!step){route='accueil';render();return}
@@ -344,7 +450,7 @@ function finishCurrentStep(){
 }
 function submitAnswer(index){
  const e=findExercise(activeId);if(!e)return;
- if(e.type==='dictation'||e.type==='challenge'||e.type==='practice')return;
+ if(e.type==='dictation'||e.type==='challenge'||e.type==='practice'||e.type==='journey')return;
  const probing=mode==='probe',correct=index===(probing?e.probeAnswer:e.answer);
  const origin=source==='session'?'session':'libre';
  if(probing)questionHelped=true;
@@ -359,12 +465,12 @@ function handle(raw){
  const p=raw.split(':'),kind=p[0],id=p[1];
  if(kind==='nav'){route=id;if(id==='fin'&&!lastSummary)lastSummary=state.sessions[state.sessions.length-1]||null;render();return}
  if(kind==='duration'){if(!state.activeSession && Engine.DURATIONS.includes(+id)){state.duration=+id;save()}render();return}
- if(kind==='start'){Engine.beginSession(state,exercises,readings);save();route='seance';render();return}
+ if(kind==='start'){Engine.beginSession(state,activeExercises,readings);save();route='seance';render();return}
  if(kind==='resume'){route='seance';render();return}
  if(kind==='doStep'){goSessionStep();return}
  if(kind==='nextStep'){finishCurrentStep();return}
  if(kind==='endSession'){lastSummary=Engine.endSession(state,{partial:true});save();route='fin';render();return}
- if(kind==='exercise'){openExercise(id);return}
+ if(kind==='exercise'){openExercise(p.slice(1).join(':'));return}
  if(kind==='subject'){currentSubject=p.slice(1).join(':');route='matiere';render();return}
  if(kind==='read'){openReading(id);return}
  if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
@@ -389,6 +495,7 @@ function handle(raw){
  if(kind==='returnMain'){mode='question';route='exercice';render();return}
  if(kind.startsWith('challenge')){handleConjugation(p);return}
  if(kind.startsWith('practice')){handlePractice(p);return}
+ if(kind.startsWith('journey')){handleJourney(p);return}
  if(kind.startsWith('math')){handleMath(kind);return}
  if(kind==='answer'){submitAnswer(Number(id));return}
  if(kind==='dictationListen'){const e=findExercise(id);if(e&&'speechSynthesis' in window){window.speechSynthesis.cancel();const msg=new SpeechSynthesisUtterance(e.text);msg.lang='fr-FR';msg.rate=0.85;window.speechSynthesis.speak(msg)}return}

@@ -75,6 +75,14 @@ for(const topic of conjugation.TOPICS){
   assert.equal(conjugation.summary(challenge).autonomous,true);
  }
 }
+for(const topic of conjugation.TOPICS){
+ for(const level of conjugation.LEVELS){
+  const c=conjugation.create({reviews:{},conjugationHistory:[]},topic.id,5,'libre',null,level.key);
+  assert.equal(c.questions.length,5);
+  assert.equal(c.level,level.key);
+  assert.ok(c.questions.every(id=>conjugation.getQuestion(id).difficulty===level.difficulty));
+ }
+}
 const adapted=conjugation.create({reviews:{'ct:present':{stage:3}},conjugationHistory:[]},'ct:present',5);
 assert.equal(adapted.questions.length,5);
 
@@ -120,4 +128,19 @@ for(const q of practiceBank.QUESTIONS.filter(x=>x.domain==='math')){
  assert.equal(result.correct,true,'Erreur de réponse libre '+q.id);
 }
 assert.equal(mathCoach.check(practiceBank.pool('pm-equivalences')[0],'0/0').valid,false);
+const journey=require('../math-journey.js');
+const journeyAudit=journey.audit();
+assert.equal(journeyAudit.total,160);
+assert.deepEqual(journeyAudit.issues,[]);
+for(const topic of journey.TOPICS)for(const level of journey.LEVELS){
+ const st={mathJourneyHistory:[],mathJourneyProgress:{}};
+ const challenge=journey.create(st,topic.id,level.id);
+ for(let i=0;i<3;i++){
+  const q=journey.current(challenge);
+  assert.equal(journey.grade(q,q.expectedDisplay).correct,true,q.id);
+  assert.equal(journey.submit(challenge,q.expectedDisplay).correct,true);
+  assert.equal(journey.advance(challenge),true);
+ }
+ assert.equal(journey.recordStage(st,challenge).successful,true);
+}
 console.log('V6 : personnalisation, migration, recommandations et 674 variantes vérifiées');
