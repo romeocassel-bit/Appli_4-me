@@ -8,6 +8,11 @@ const ConjugationEngine=(function buildConjugation(){
     {key:"futur",label:"Futur simple",context:"Demain",detail:"Ce qui se passera plus tard"},
     {key:"passe",label:"Passé composé",context:"Hier",detail:"Un fait achevé dans le passé"}
   ];
+  const LEVELS=[
+    {key:"decouverte",label:"Découverte",description:"Verbes réguliers du premier groupe. On observe le sujet et les terminaisons.",difficulty:1},
+    {key:"entrainement",label:"Entraînement",description:"Verbes du deuxième groupe. On varie les personnes et les phrases.",difficulty:2},
+    {key:"approfondissement",label:"Défi",description:"Verbes fréquents irréguliers : être, avoir, faire, prendre, voir…",difficulty:3}
+  ];
   const TOPICS=[
     {id:"ct:present",tense:"present",topic:"Conjugaison — présent",subject:"Français",type:"challenge",minutes:4,priority:0},
     {id:"ct:imparfait",tense:"imparfait",topic:"Conjugaison — imparfait",subject:"Français",type:"challenge",minutes:4,priority:0.1},
@@ -129,10 +134,16 @@ const ConjugationEngine=(function buildConjugation(){
   function history(state){
     return Array.isArray(state.conjugationHistory)?state.conjugationHistory:[];
   }
-  function create(state,topicId,count=5,origin="libre",sessionId=null){
+  function recommendedLevel(state,topicId){
+    const p=state.reviews&&state.reviews[topicId];
+    return !p||p.stage<2?"decouverte":p.stage<4?"entrainement":"approfondissement";
+  }
+  function create(state,topicId,count=5,origin="libre",sessionId=null,level="auto"){
     const topic=TOPICS.find(t=>t.id===topicId);
     if(!topic)return null;
     const desired=[3,4,5,8].includes(count)?count:5;
+    const selected=LEVELS.some(x=>x.key===level)?level:(level==="auto"?"auto":recommendedLevel(state,topicId));
+    const selectedDifficulty=LEVELS.find(x=>x.key===selected)?.difficulty||null;
     const previous=history(state),used=new Set(),questions=[],verbs=new Set(),persons=new Set();
     const mastery=state.reviews&&state.reviews[topicId]?state.reviews[topicId].stage:0;
     const levels=mastery>=3?[2,2,3,3]:mastery>=1?[1,2,2,3]:[1,1,2,2];
@@ -141,7 +152,7 @@ const ConjugationEngine=(function buildConjugation(){
     for(let i=0;i<desired;i++){
       const tense=allTenses[(i+rotate)%allTenses.length];
       const targetLevel=levels[Math.min(i,levels.length-1)];
-      const candidates=poolFor(tense).filter(q=>!used.has(q.id));
+      const candidates=poolFor(tense).filter(q=>!used.has(q.id)&&(!selectedDifficulty||q.difficulty===selectedDifficulty));
       candidates.sort((a,b)=>{
         function score(q){
           const recent=previous.slice(-85).findLastIndex(e=>e.questionId===q.id);
@@ -158,7 +169,7 @@ const ConjugationEngine=(function buildConjugation(){
       used.add(best.id);verbs.add(best.verb);persons.add(best.person);questions.push(best.id);
     }
     if(questions.length!==desired)throw Error("Banque insuffisante pour "+topicId);
-    return {topicId,questions,cursor:0,answers:[],hintShown:false,finished:false,
+    return {topicId,level:selected,questions,cursor:0,answers:[],hintShown:false,finished:false,
       recorded:false,origin,sessionId,createdAt:Date.now()};
   }
   function current(challenge){
@@ -192,7 +203,7 @@ const ConjugationEngine=(function buildConjugation(){
       completed:Boolean(challenge.finished),
       autonomous:challenge.finished&&correct===challenge.questions.length&&assisted===0};
   }
-  return {TOPICS,TENSES,VERBS,questionCount:index.size,poolFor,getQuestion,create,current,answer,advance,summary,history};
+  return {TOPICS,TENSES,LEVELS,VERBS,questionCount:index.size,poolFor,getQuestion,create,recommendedLevel,current,answer,advance,summary,history};
 })();
 if(typeof window!=='undefined')window.ConjugationEngine=ConjugationEngine;
 if(typeof module!=='undefined'&&module.exports)module.exports=ConjugationEngine;
