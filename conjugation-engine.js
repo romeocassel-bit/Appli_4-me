@@ -149,7 +149,7 @@ const ConjugationEngine=(function buildConjugation(){
           const difficulty=Math.abs(q.difficulty-targetLevel)*12;
           const sameVerb=verbs.has(q.verb)?22:0;
           const samePerson=persons.has(q.person)?4:0;
-          return repeat+difficulty+sameVerb+samePerson;
+          return repeat+difficulty+sameVerb+samePerson-(typeof PersonalizationEngine!=='undefined'?PersonalizationEngine.questionBias(state,topicId,q):0);
         }
         return score(a)-score(b)||a.id.localeCompare(b.id);
       });
