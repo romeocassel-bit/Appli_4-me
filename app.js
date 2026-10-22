@@ -13,11 +13,13 @@ const exercises=[
 ];
 const readings=window.APP_READINGS||[];
 const orthography=window.ORTHOGRAPHY_DATA||{questions:[],dictations:[]};
-exercises.push(...orthography.questions,...orthography.dictations);
+exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS);
 let stored=null,legacy=null;
 try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
 try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
 const state=Engine.normalizeState(stored,legacy);
+state.conjugationHistory=Array.isArray(stored?.conjugationHistory)?stored.conjugationHistory:[];
+state.challenge=stored?.challenge&&Array.isArray(stored.challenge.questions)&&ConjugationEngine.TOPICS.some(t=>t.id===stored.challenge.topicId)?stored.challenge:null;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch{saveError=true}};
 let saveError=false;
 if(!stored)save();
@@ -62,7 +64,7 @@ function sessionView(){
  const item=step.kind==='reading'?findReading(step.id):findExercise(step.id);
  if(!item)return head('Séance','Activité introuvable')+card(btn('Terminer la séance','endSession'));
  return head('Ma séance','Étape '+(sess.cursor+1)+' sur '+sess.plan.length,'Durée indicative : '+sess.duration+' min. Aucune limite de temps.')
- +card('<span class="pill">'+(step.kind==='reading'?'Lecture plaisir':step.source==='review'?'Rappel mémoire':'Petit défi')+'</span><h2 style="margin-top:14px">'+esc(item.title||item.topic)+'</h2><p class="muted">'+(step.kind==='reading'?'Un moment de lecture, sans question obligatoire.':esc(item.subject)+' · Environ 2 min')+'</p>'+btn('C’est parti','doStep')+' '+btn('Arrêter ici','endSession','outline'),'highlight');
+ +card('<span class="pill">'+(step.kind==='reading'?'Lecture plaisir':step.source==='review'?'Rappel mémoire':'Petit défi')+'</span><h2 style="margin-top:14px">'+esc(item.title||item.topic)+'</h2><p class="muted">'+(step.kind==='reading'?'Un moment de lecture, sans question obligatoire.':esc(item.subject)+' · Environ '+(item.minutes||2)+' min')+'</p>'+btn('C’est parti','doStep')+' '+btn('Arrêter ici','endSession','outline'),'highlight');
 }
 function library(){
  const series=readings.filter(r=>r.seriesId==='solstice');
@@ -97,6 +99,7 @@ function subjectPage(){return head('Mes matières',currentSubject,'À toi de cho
 function exercise(){
  const e=findExercise(activeId);if(!e)return subjects();
  if(e.type==='dictation')return dictationView(e);
+ if(e.type==='challenge')return conjugationView(e);
  const probe=mode==='probe';
  return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
  +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
@@ -129,6 +132,68 @@ function checkDictation(){
  root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
 }
 
+
+function conjugationView(topic){
+ const challenge=state.challenge?.topicId===topic.id?state.challenge:null;
+ if(!challenge||challenge.finished){
+  const choices=[3,5,8].map(n=>btn(n+' questions','challengeStart:'+topic.id+':'+n,n===5?'':'secondary')).join('');
+  return head('Conjugaison',topic.topic,'Choisis une série courte. Les phrases varient d’une séance à l’autre.')
+   +card('<span class="pill">Présent · Imparfait · Futur · Passé composé</span><h2 style="margin-top:14px">Combien de questions ?</h2><div class="actions">'+choices+'</div><p class="muted">Sans chronomètre. Tu peux interrompre et reprendre le défi.</p>');
+ }
+ const q=ConjugationEngine.current(challenge);
+ if(!q)return head('Conjugaison','Défi terminé')+card(btn('Voir mon bilan','challengeNext'));
+ const answered=challenge.answers.find(x=>x.atIndex===challenge.cursor);
+ return head('Conjugaison',topic.topic,'Question '+(challenge.cursor+1)+' sur '+challenge.questions.length+' · '+q.tenseLabel)
+ +card('<span class="pill">'+q.verb+' · '+q.tenseLabel+'</span><h2 style="margin-top:14px">'+esc(q.question)+'</h2>'
+ +'<div class="choices">'+q.options.map((x,i)=>'<button class="choice" '+(answered?'disabled ':'')+'data-action="challengeAnswer:'+i+'">'+esc(x)+'</button>').join('')+'</div>'
+ +(answered?'<div class="feedback"><b>'+(answered.correct?'Bonne réponse.':'À revoir.')+'</b> '+esc(q.why)+'</div><div class="actions">'+btn('Question suivante','challengeNext')+'</div>'
+ :'<div class="actions">'+btn('Un indice','challengeHint','secondary')+btn('Faire une pause','nav:matieres','outline')+'</div>'
+ +(challenge.hintShown?'<div class="feedback">'+esc(q.hint)+'</div>':''))
+ );
+}
+function conjugationEnd(){
+ const c=state.challenge;
+ if(!c)return head('Conjugaison','Bilan')+card(btn('Retour aux matières','nav:matieres'));
+ const result=ConjugationEngine.summary(c);
+ return head('Conjugaison','Ton défi est terminé','Les nouvelles phrases reviendront dans de prochains défis.')
+ +card('<h2>'+result.correct+' réponse(s) retrouvée(s) sur '+result.total+'</h2><p>'+result.independent+' réussite(s) sans indice et '+result.assisted+' avec indice.</p><p class="muted">Le résultat sert à choisir les prochaines questions. Il ne définit pas ton niveau.</p><div class="actions">'+btn('Autre série','challengeReset')+btn('Retour aux matières','nav:matieres','outline')+'</div>');
+}
+function completeConjugation(){
+ const c=state.challenge;if(!c?.finished||c.recorded)return;
+ const result=ConjugationEngine.summary(c);
+ const autonomous=result.autonomous;
+ // Un défi n'est considéré acquis qu'après toutes les questions réussies sans indice.
+ Engine.recordAttempt(state,c.topicId,{correct:autonomous,assisted:!autonomous,kind:'question',source:c.origin});
+ for(const item of c.answers){
+  state.conjugationHistory.push({...item,topicId:c.topicId});
+ }
+ if(state.conjugationHistory.length>1200)state.conjugationHistory.splice(0,state.conjugationHistory.length-1200);
+ c.recorded=true;
+ if(c.origin==='session'&&state.activeSession&&sessionStep()?.id===c.topicId){
+  const wasLast=state.activeSession.cursor===state.activeSession.plan.length-1;
+  Engine.finishStep(state,'exercise',c.topicId);
+  if(wasLast)lastSummary=state.sessions[state.sessions.length-1];
+ }
+ save();
+}
+function handleConjugation(p){
+ const kind=p[0],topic=findExercise(p[1]);
+ if(kind==='challengeStart'){
+  if(!topic||topic.type!=='challenge')return;
+  let count=[3,5,8].includes(+p[2])?+p[2]:5;
+  if(source==='session')count=3;
+  state.challenge=ConjugationEngine.create(state,topic.id,count,source,state.activeSession?.id||null);
+  save();render();return;
+ }
+ const c=state.challenge;if(!c)return;
+ if(kind==='challengeHint'){c.hintShown=true;save();render();return}
+ if(kind==='challengeAnswer'){if(ConjugationEngine.answer(c,+p[1])){save();render()}return}
+ if(kind==='challengeNext'){
+  if(ConjugationEngine.advance(c)){if(c.finished){completeConjugation();route='conjugaisonBilan'}save();render()}
+  return;
+ }
+ if(kind==='challengeReset'){const id=c.topicId;state.challenge=null;source='libre';activeId=id;route='exercice';save();render();return}
+}
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
  +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
@@ -154,7 +219,7 @@ function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as
  +card('<h2>'+((lastSummary&&lastSummary.completed)||0)+' activité(s) réalisées</h2><p class="muted">Tu peux revenir quand tu en auras envie. Aucune absence n’est pénalisée.</p>'+btn('Retour à l’accueil','nav:accueil'))}
 function render(){
  const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
- matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView};
+ matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd};
  root.innerHTML=(pages[route]||home)();
  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
@@ -168,7 +233,7 @@ function finishCurrentStep(){
 }
 function submitAnswer(index){
  const e=findExercise(activeId);if(!e)return;
- if(e.type==='dictation')return;
+ if(e.type==='dictation'||e.type==='challenge')return;
  const probing=mode==='probe',correct=index===(probing?e.probeAnswer:e.answer);
  const origin=source==='session'?'session':'libre';
  if(probing)questionHelped=true;
@@ -212,6 +277,7 @@ function handle(raw){
  root.innerHTML=head('Compréhension',correct?'Bien trouvé !':'Une occasion de relire')+card('<p>'+esc(correct?'Tu as retrouvé une information importante.':'Relis le passage qui raconte ce moment si tu en as envie.')+'</p>'+btn('Continuer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture'));root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));return;
  }
  if(kind==='returnMain'){mode='question';route='exercice';render();return}
+ if(kind.startsWith('challenge')){handleConjugation(p);return}
  if(kind==='answer'){submitAnswer(Number(id));return}
  if(kind==='dictationListen'){const e=findExercise(id);if(e&&'speechSynthesis' in window){window.speechSynthesis.cancel();const msg=new SpeechSynthesisUtterance(e.text);msg.lang='fr-FR';msg.rate=0.85;window.speechSynthesis.speak(msg)}return}
  if(kind==='dictationCheck'){checkDictation();return}
