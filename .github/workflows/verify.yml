@@ -1,0 +1,24 @@
+name: Vérifications pédagogiques et techniques
+on:
+  push:
+    branches:
+      - defis-conjugaison-v4
+  pull_request:
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vérifier la syntaxe JavaScript
+        run: |
+          node --check app.js
+          node --check learning-engine.js
+          node --check conjugation-engine.js
+          node --check dictation-engine.js
+          node --check orthography-data.js
+          node --check readings.js
+      - name: Vérifier les règles pédagogiques
+        run: node tests/verify.js
