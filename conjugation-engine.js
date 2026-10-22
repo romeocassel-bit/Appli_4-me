@@ -170,7 +170,7 @@ const ConjugationEngine=(function buildConjugation(){
     }
     if(questions.length!==desired)throw Error("Banque insuffisante pour "+topicId);
     return {topicId,level:selected,questions,cursor:0,answers:[],hintShown:false,finished:false,
-      recorded:false,origin,sessionId,createdAt:Date.now()};
+      recorded:false,origin,sessionId,wrongTries:0,draft:'',showChoices:false,createdAt:Date.now()};
   }
   function current(challenge){
     return challenge&&challenge.questions&&getQuestion(challenge.questions[challenge.cursor]);
@@ -187,10 +187,40 @@ const ConjugationEngine=(function buildConjugation(){
     challenge.answers.push(result);
     return result;
   }
+  function normalizeForm(value){
+    return String(value??'').trim().toLocaleLowerCase('fr')
+      .replace(/[’\u2019]/g,"'").replace(/\s+/g,' ');
+  }
+  // En Découverte, l'élève écrit toute la forme verbale, y compris l'auxiliaire.
+  // Les accents et les lettres restent obligatoires ; seuls espaces/casse sont normalisés.
+  function submitWritten(challenge,value){
+    const q=current(challenge);
+    if(!q||challenge.finished||hasAnswer(challenge))return {valid:false,reason:'Question déjà terminée.'};
+    const raw=String(value??'').slice(0,100),actual=normalizeForm(raw);
+    if(!actual)return {valid:false,reason:'Écris la forme du verbe avant de vérifier.'};
+    if(!/^[a-zàâäçéèêëîïôöùûüÿœæ' -]{1,100}$/i.test(actual))
+      return {valid:false,reason:'Écris seulement le verbe conjugué, avec ses accents.'};
+    const correct=actual===normalizeForm(q.correctForm);
+    if(!correct){
+      challenge.wrongTries=(challenge.wrongTries||0)+1;
+      challenge.hintShown=true;
+      return {valid:true,correct:false,reason:challenge.wrongTries>=2
+        ?'Regarde la personne et le temps. Tu peux maintenant utiliser les propositions.'
+        :'Regarde le sujet, puis vérifie la terminaison.'};
+    }
+    const assisted=!!(challenge.hintShown||challenge.wrongTries);
+    const result={atIndex:challenge.cursor,questionId:q.id,correct:true,assisted,
+      answer:q.answer,mode:'saisie',written:raw,tense:q.tense,verb:q.verb,at:Date.now()};
+    challenge.answers.push(result);
+    return {valid:true,correct:true,assisted};
+  }
   function advance(challenge){
     if(!challenge||!hasAnswer(challenge)||challenge.finished)return false;
     challenge.cursor++;
     challenge.hintShown=false;
+    challenge.wrongTries=0;
+    challenge.draft='';
+    challenge.showChoices=false;
     if(challenge.cursor>=challenge.questions.length)challenge.finished=true;
     return true;
   }
@@ -203,7 +233,7 @@ const ConjugationEngine=(function buildConjugation(){
       completed:Boolean(challenge.finished),
       autonomous:challenge.finished&&correct===challenge.questions.length&&assisted===0};
   }
-  return {TOPICS,TENSES,LEVELS,VERBS,questionCount:index.size,poolFor,getQuestion,create,recommendedLevel,current,answer,advance,summary,history};
+  return {TOPICS,TENSES,LEVELS,VERBS,questionCount:index.size,poolFor,getQuestion,create,recommendedLevel,current,answer,submitWritten,normalizeForm,advance,summary,history};
 })();
 if(typeof window!=='undefined')window.ConjugationEngine=ConjugationEngine;
 if(typeof module!=='undefined'&&module.exports)module.exports=ConjugationEngine;
