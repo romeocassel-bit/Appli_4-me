@@ -20,6 +20,7 @@ try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
 const state=Engine.normalizeState(stored,legacy);
 state.conjugationHistory=Array.isArray(stored?.conjugationHistory)?stored.conjugationHistory:[];
 state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHistory:[];
+PersonalizationEngine.hydrate(state,{conjugation:ConjugationEngine,practice:PracticeBank});
 state.practiceChallenge=stored?.practiceChallenge&&PracticeBank.TOPICS.some(t=>t.id===stored.practiceChallenge.topicId)?stored.practiceChallenge:null;
 state.challenge=stored?.challenge&&Array.isArray(stored.challenge.questions)&&ConjugationEngine.TOPICS.some(t=>t.id===stored.challenge.topicId)?stored.challenge:null;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch{saveError=true}};
@@ -53,10 +54,12 @@ function sessionHome(){
 }
 function home(){
  const n=due().length;
+ const suggestions=PersonalizationEngine.recommendations(state,[...ConjugationEngine.TOPICS,...PracticeBank.TOPICS]);
  return head('Un peu chaque jour','Une petite séance à ton rythme','Cinq, dix ou quinze minutes, sans chronomètre ni obligation.')
  +(state.activeSession?sessionHome():card('<div class="row"><div><div class="eyebrow">Ma séance</div><h2>Tu choisis le temps</h2></div><span class="pill">Sans chrono</span></div><div class="actions">'+[5,10,15].map(n=>btn(n+' min','duration:'+n,state.duration===n?'':'secondary')).join('')+'</div><p class="muted">Des rappels utiles, de petits défis et parfois une histoire.</p>'+btn('Commencer ma séance','start'),'highlight'))
  +card('<div class="item"><span class="symbol">▤</span><div><b>Une histoire à découvrir</b><div class="min">Fantastique, musique, créativité…</div></div></div><div class="actions">'+btn('Choisir une lecture','nav:lecture','secondary')+'</div>')
  +card('<div class="item"><span class="symbol">↻</span><div><b>À retrouver en mémoire</b><div class="min">'+(n?n+' notion(s) à revoir':'Rien d’urgent aujourd’hui')+'</div></div></div><div class="actions">'+btn('Voir les rappels','nav:revisions','outline')+'</div>')
+ +(suggestions.length?card('<h2>Des idées pour progresser</h2>'+suggestions.map(x=>'<div class="row"><div><b>'+esc(x.title)+'</b><div class="min">'+esc(x.reason)+'</div></div>'+btn('Revoir','exercise:'+x.id,'secondary')).join('<hr>')):'')
  +'<p class="muted">Pas de retard à rattraper si tu fais une pause.</p>'+actionRow();
 }
 function sessionView(){
@@ -165,6 +168,7 @@ function completeConjugation(){
  const c=state.challenge;if(!c?.finished||c.recorded)return;
  const result=ConjugationEngine.summary(c);
  const autonomous=result.autonomous;
+ for(const item of c.answers){PersonalizationEngine.record(state,{topicId:c.topicId,question:ConjugationEngine.getQuestion(item.questionId),correct:item.correct,assisted:item.assisted,at:item.at})}
  // Un défi n'est considéré acquis qu'après toutes les questions réussies sans indice.
  Engine.recordAttempt(state,c.topicId,{correct:autonomous,assisted:!autonomous,kind:'question',source:c.origin});
  for(const item of c.answers){
@@ -226,6 +230,7 @@ function practiceEnd(){
 function finishPractice(){
  const c=state.practiceChallenge;if(!c?.finished||c.recorded)return;
  const result=PracticeEngine.summary(c);
+ for(const item of c.answers){PersonalizationEngine.record(state,{topicId:c.topicId,question:PracticeBank.getQuestion(item.questionId),correct:item.correct,assisted:item.assisted,at:item.at})}
  Engine.recordAttempt(state,c.topicId,{correct:result.autonomous,assisted:!result.autonomous,kind:'question',source:c.origin});
  state.practiceHistory.push(...c.answers.map(a=>({...a,challengeTopicId:c.topicId})));
  if(state.practiceHistory.length>1500)state.practiceHistory.splice(0,state.practiceHistory.length-1500);
@@ -263,6 +268,7 @@ function revisions(){
 }
 function progress(){
  const summary=Engine.recap(state,exercises);
+ const detailed=PersonalizationEngine.report(state,[...ConjugationEngine.TOPICS,...PracticeBank.TOPICS]).filter(x=>x.attempts).slice(0,12);
  return head('Mon chemin','Mes progrès','On cherche à comprendre ce qui devient plus facile, sans comparaison.')
  +card('<div class="grid"><div><div class="eyebrow">Histoires découvertes</div><h1>'+summary.readings+'</h1></div><div><div class="eyebrow">Séances terminées</div><h1>'+summary.sessions+'</h1></div><div><div class="eyebrow">Réussites autonomes</div><h1>'+summary.independentSuccesses+'</h1></div><div><div class="eyebrow">Réussites avec aide</div><h1>'+summary.assistedSuccesses+'</h1></div></div>')
  +card('<h2>Les notions en chemin</h2>'+exercises.filter(e=>state.reviews[e.id]).map(e=>{
