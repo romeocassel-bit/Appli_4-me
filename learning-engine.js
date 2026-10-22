@@ -130,24 +130,26 @@ const LearningEngine=(function buildEngine() {
       reading=readingCandidate(state,readings,duration-4);
       if(reading) budget-=Number(reading.time);
     }
-    const slots=Math.floor(budget/2);
-    const reviewLimit=Math.min(slots,duration>=15?3:2);
+    const reviewLimit=duration>=15?3:2;
+    const cost=e=>Math.max(1,Math.min(5,Number(e.minutes)||2));
     const dueAvailable=[...due];
-    while(selected.length<reviewLimit) {
-      const item=ranked(dueAvailable)[0];
+    while(selected.filter(x=>x.source==="review").length<reviewLimit) {
+      const item=ranked(dueAvailable.filter(e=>cost(e)<=budget))[0];
       if(!item)break;
       used.add(item.id);
-      selected.push({...item,kind:"exercise",minutes:2,source:"review"});
+      budget-=cost(item);
+      selected.push({...item,kind:"exercise",minutes:cost(item),source:"review"});
     }
-    while(selected.length<slots) {
-      const candidates=exercises.filter(e=>!state.reviews[e.id]);
+    while(budget>=2) {
+      const candidates=exercises.filter(e=>!state.reviews[e.id]&&cost(e)<=budget);
       const item=ranked(candidates)[0];
       if(!item)break;
       used.add(item.id);
-      selected.push({...item,kind:"exercise",minutes:2,source:"new"});
+      budget-=cost(item);
+      selected.push({...item,kind:"exercise",minutes:cost(item),source:"new"});
     }
-    // Do not force a review before its due date or manufacture filler exercises.
-    const compact=selected.map(x=>({kind:"exercise",id:x.id,minutes:2,source:x.source}));
+    // Ne pas créer de faux rappels avant échéance ni dépasser le budget prévu.
+    const compact=selected.map(x=>({kind:"exercise",id:x.id,minutes:x.minutes,source:x.source}));
     if(reading)compact.splice(Math.min(1,compact.length),0,{kind:"reading",id:reading.id,minutes:Number(reading.time),source:"plaisir"});
     else if(!compact.length && duration===5){
       const extra=readingCandidate(state,readings,5);
