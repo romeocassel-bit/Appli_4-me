@@ -37,6 +37,20 @@ async function run(){
    await page.locator('[data-nav="matieres"]').click();
    await page.locator('[data-action="subject:Français"]').click();
    assert.equal(await page.locator('[data-action="exercise:o1"]').count(),0,'Ancien QCM orthographe visible');
+   assert.ok((await page.locator('#app').innerText()).includes('Choisis ton temps de conjugaison'));
+   for(const tense of ['present','imparfait','futur','passe','mixte']){
+    await page.locator('[data-action="exercise:ct:'+tense+'"]').click();
+    assert.ok((await page.locator('#app').innerText()).includes('Découverte'));
+    assert.ok((await page.locator('#app').innerText()).includes('Entraînement'));
+    assert.ok((await page.locator('#app').innerText()).includes('Défi'));
+    await page.locator('[data-nav="matieres"]').click();
+    await page.locator('[data-action="subject:Français"]').click();
+   }
+   await page.locator('[data-action="exercise:ct:present"]').click();
+   await page.locator('[data-action="challengeStart:ct:present:3:decouverte"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Question 1 sur 3'));
+   await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Français"]').click();
    await page.locator('[data-action="exercise:po-accord"]').click();
    await page.locator('[data-action="practiceStart:po-accord:5"]').click();
    assert.ok((await page.locator('.hero').innerText()).includes('Question 1 sur 5'));
