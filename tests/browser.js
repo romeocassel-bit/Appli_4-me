@@ -29,7 +29,14 @@ async function run(){
    await page.goto(url);await page.getByText('Commencer ma séance').waitFor();
    assert.equal(errors.length,0,'Homepage JS errors: '+errors.join('; '));
    await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Maths"]').click();
+   assert.equal(await page.locator('[data-action="exercise:m1"]').count(),0,'Ancien QCM isolé visible');
+   assert.equal(await page.locator('[data-action="exercise:m2"]').count(),0,'Ancien QCM relatifs visible');
+   assert.ok((await page.locator('#app').innerText()).includes('Parcours guidés'));
+   assert.ok((await page.locator('#app').innerText()).includes('Séries d’automatismes'));
+   await page.locator('[data-nav="matieres"]').click();
    await page.locator('[data-action="subject:Français"]').click();
+   assert.equal(await page.locator('[data-action="exercise:o1"]').count(),0,'Ancien QCM orthographe visible');
    await page.locator('[data-action="exercise:po-accord"]').click();
    await page.locator('[data-action="practiceStart:po-accord:5"]').click();
    assert.ok((await page.locator('.hero').innerText()).includes('Question 1 sur 5'));
