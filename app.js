@@ -219,12 +219,12 @@ function completeConjugation(){
  save();
 }
 function handleConjugation(p){
- const kind=p[0],topic=findExercise(p[1]);
+ const kind=p[0],topic=findExercise(p.slice(1,3).join(':'));
  if(kind==='challengeStart'){
   if(!topic||topic.type!=='challenge')return;
-  let count=[3,5,8].includes(+p[2])?+p[2]:5;
+  let count=[3,5,8].includes(+p[3])?+p[3]:5;
   if(source==='session')count=3;
-  const level=ConjugationEngine.LEVELS.some(l=>l.key===p[3])?p[3]:'auto';
+  const level=ConjugationEngine.LEVELS.some(l=>l.key===p[4])?p[4]:'auto';
   state.challenge=ConjugationEngine.create(state,topic.id,count,source,state.activeSession?.id||null,level);
   save();render();return;
  }
@@ -470,7 +470,7 @@ function handle(raw){
  if(kind==='doStep'){goSessionStep();return}
  if(kind==='nextStep'){finishCurrentStep();return}
  if(kind==='endSession'){lastSummary=Engine.endSession(state,{partial:true});save();route='fin';render();return}
- if(kind==='exercise'){openExercise(id);return}
+ if(kind==='exercise'){openExercise(p.slice(1).join(':'));return}
  if(kind==='subject'){currentSubject=p.slice(1).join(':');route='matiere';render();return}
  if(kind==='read'){openReading(id);return}
  if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
