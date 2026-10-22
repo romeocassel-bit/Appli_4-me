@@ -62,7 +62,8 @@ async function run(){
    assert.ok((await page.locator('#app').innerText()).includes('Séance en cours'));
    await page.locator('[data-action="resume"]').click();
    await page.locator('[data-action="endSession"]').click();
-   assert.ok((await page.locator('#app').innerText()).includes('Pour aujourd’hui'));
+   const finishText=await page.locator('#app').innerText();
+   assert.ok(finishText.includes('Pour aujourd’hui'),'Fin de séance incorrecte : '+finishText.slice(0,450));
    assert.equal(errors.length,0,'Browser JavaScript errors: '+errors.join('; '));
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+3);
    assert.equal(overflow,false,'Horizontal overflow at width '+viewport.width);
