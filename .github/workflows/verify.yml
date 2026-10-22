@@ -5,6 +5,7 @@ on:
       - defis-conjugaison-v4
       - defis-orthographe-maths-v5
       - personnalisation-v6
+      - release-candidate-v7
   pull_request:
 jobs:
   verification:
@@ -27,3 +28,16 @@ jobs:
           node --check readings.js
       - name: Vérifier les règles pédagogiques
         run: node tests/verify.js
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Installer Chromium pour les tests
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Parcours navigateur mobile et ordinateur
+        run: node tests/browser.js
