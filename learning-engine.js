@@ -122,7 +122,7 @@ const LearningEngine=(function buildEngine() {
     });
     let budget=duration;
     let reading=null;
-    if(duration===5 && due.length===0) {
+    if(duration===5 && due.length===0 && !exercises.some(e=>!state.reviews[e.id]&&Number(e.minutes||2)<=5)) {
       reading=readingCandidate(state,readings,5);
       if(reading) return [{kind:"reading",id:reading.id,minutes:Number(reading.time),source:"plaisir"}];
     }
@@ -177,7 +177,7 @@ const LearningEngine=(function buildEngine() {
     if(state.history.length>MAX_HISTORY)state.history.splice(0,state.history.length-MAX_HISTORY);
     if(kind!=="question")return event;
     const prev=state.reviews[id] || normalReview({},today);
-    const stage=isRight&&!help?Math.min(5,prev.stage+1):(isRight?Math.min(1,prev.stage):0);
+    const stage=isRight&&!help?Math.min(5,prev.stage+1):0;
     const nextDate=plusDays(today,INTERVALS[stage]);
     state.reviews[id]={stage,dueDate:nextDate,attempts:prev.attempts+1,
       independentSuccesses:prev.independentSuccesses+Number(isRight&&!help),
