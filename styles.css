@@ -35,3 +35,6 @@ button:focus-visible,.choice:focus-visible,.word:focus-visible,textarea:focus-vi
 .journey-level .muted{margin:5px 0 10px}
 #journey-input,#math-input,#math-prereq{display:block;width:100%;min-height:48px;padding:12px 14px;font:inherit;background:#fff;color:#273043;border:1px solid #aaa8bb;border-radius:12px}
 #journey-input:focus-visible,#math-input:focus-visible,#math-prereq:focus-visible{outline:3px solid #5d5a96;outline-offset:2px}
+
+#conjugation-input{display:block;width:100%;min-height:48px;padding:12px 14px;font:inherit;background:#fff;color:#273043;border:1px solid #aaa8bb;border-radius:12px}
+#conjugation-input:focus-visible{outline:3px solid #5d5a96;outline-offset:2px}

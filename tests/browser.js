@@ -49,6 +49,18 @@ async function run(){
    await page.locator('[data-action="exercise:ct:present"]').click();
    await page.locator('[data-action="challengeStart:ct:present:3:decouverte"]').click();
    assert.ok((await page.locator('#app').innerText()).includes('Question 1 sur 3'));
+   assert.equal(await page.locator('#conjugation-input').count(),1);
+   await page.locator('#conjugation-input').fill('essai');
+   await page.reload();
+   await page.locator('[data-nav="matieres"]').click();
+   await page.locator('[data-action="subject:Français"]').click();
+   await page.locator('[data-action="exercise:ct:present"]').click();
+   assert.equal(await page.locator('#conjugation-input').inputValue(),'essai');
+   await page.locator('[data-action="challengeWrite"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('terminaison'));
+   await page.locator('#conjugation-input').fill('encore faux');
+   await page.locator('[data-action="challengeWrite"]').click();
+   assert.equal(await page.locator('[data-action^="challengeAnswer:"]').count(),3);
    await page.locator('[data-nav="matieres"]').click();
    await page.locator('[data-action="subject:Français"]').click();
    await page.locator('[data-action="exercise:po-accord"]').click();

@@ -8,6 +8,7 @@ on:
       - release-candidate-v7
       - audit-maths-coaching-v8
       - parcours-maths-v9
+      - conjugaison-saisie-v10
   pull_request:
 jobs:
   verification:
