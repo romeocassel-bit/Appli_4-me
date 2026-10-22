@@ -75,6 +75,14 @@ for(const topic of conjugation.TOPICS){
   assert.equal(conjugation.summary(challenge).autonomous,true);
  }
 }
+for(const topic of conjugation.TOPICS){
+ for(const level of conjugation.LEVELS){
+  const c=conjugation.create({reviews:{},conjugationHistory:[]},topic.id,5,'libre',null,level.key);
+  assert.equal(c.questions.length,5);
+  assert.equal(c.level,level.key);
+  assert.ok(c.questions.every(id=>conjugation.getQuestion(id).difficulty===level.difficulty));
+ }
+}
 const adapted=conjugation.create({reviews:{'ct:present':{stage:3}},conjugationHistory:[]},'ct:present',5);
 assert.equal(adapted.questions.length,5);
 
