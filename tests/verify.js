@@ -45,6 +45,18 @@ assert.equal(s.reviews.a.stage,0,'Une réussite avec aide ne suffit pas');
 engine.recordAttempt(s,'a',{correct:true,now:new Date(2026,9,23,12)});
 assert.equal(s.reviews.a.stage,1);
 
+const fs=require('node:fs');
+const vm=require('node:vm');
+const readingsContext={window:{}};
+vm.runInNewContext(fs.readFileSync(require('node:path').resolve(__dirname,'../readings.js'),'utf8'),readingsContext);
+const stories=readingsContext.window.APP_READINGS;
+assert.equal(stories.length,7);
+for(const story of stories){
+ const n=story.text.trim().split(/\s+/).length;
+ assert.ok(n>=340 && n<=460,'Longueur de '+story.id+': '+n);
+ assert.ok(story.time>=5 && story.time<=9);
+ assert.ok(story.words.every(w=>story.text.toLowerCase().includes(w.term.toLowerCase())),'Vocabulaire de '+story.id);
+}
 const conjugation=require('../conjugation-engine.js');
 assert.equal(conjugation.questionCount,336);
 for(const tense of ['present','imparfait','futur','passe']){
