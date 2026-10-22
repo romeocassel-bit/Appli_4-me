@@ -13,12 +13,14 @@ const exercises=[
 ];
 const readings=window.APP_READINGS||[];
 const orthography=window.ORTHOGRAPHY_DATA||{questions:[],dictations:[]};
-exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS);
+exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS);
 let stored=null,legacy=null;
 try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
 try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
 const state=Engine.normalizeState(stored,legacy);
 state.conjugationHistory=Array.isArray(stored?.conjugationHistory)?stored.conjugationHistory:[];
+state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHistory:[];
+state.practiceChallenge=stored?.practiceChallenge&&PracticeBank.TOPICS.some(t=>t.id===stored.practiceChallenge.topicId)?stored.practiceChallenge:null;
 state.challenge=stored?.challenge&&Array.isArray(stored.challenge.questions)&&ConjugationEngine.TOPICS.some(t=>t.id===stored.challenge.topicId)?stored.challenge:null;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch{saveError=true}};
 let saveError=false;
@@ -100,6 +102,7 @@ function exercise(){
  const e=findExercise(activeId);if(!e)return subjects();
  if(e.type==='dictation')return dictationView(e);
  if(e.type==='challenge')return conjugationView(e);
+ if(e.type==='practice')return practiceView(e);
  const probe=mode==='probe';
  return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
  +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
@@ -194,6 +197,65 @@ function handleConjugation(p){
  }
  if(kind==='challengeReset'){const id=c.topicId;state.challenge=null;source='libre';activeId=id;route='exercice';save();render();return}
 }
+
+function practiceView(topic){
+ const c=state.practiceChallenge?.topicId===topic.id?state.practiceChallenge:null;
+ if(!c||c.finished){
+  return head(topic.subject,topic.topic,'Plusieurs exemples différents, à ton rythme.')
+  +card('<span class="pill">Défi progressif</span><h2 style="margin-top:14px">Choisis ton défi</h2><div class="actions">'
+    +[3,5,8].map(n=>btn(n+' questions','practiceStart:'+topic.id+':'+n,n===5?'':'secondary')).join('')
+    +'</div><p class="muted">Aucun compte à rebours. Tu peux faire une pause.</p>');
+ }
+ const q=PracticeEngine.current(c);
+ if(!q)return head(topic.subject,'Défi terminé')+card(btn('Voir mon bilan','practiceNext'));
+ const done=c.answers.find(x=>x.atIndex===c.cursor);
+ return head(topic.subject,topic.topic,'Question '+(c.cursor+1)+' sur '+c.questions.length)
+ +card('<span class="pill">'+(q.difficulty===1?'Découverte':q.difficulty===2?'Entraînement':'Approfondissement')+'</span><h2 style="margin-top:14px">'+esc(q.question)+'</h2>'
+ +'<div class="choices">'+q.options.map((x,i)=>'<button class="choice" '+(done?'disabled ':'')+'data-action="practiceAnswer:'+i+'">'+esc(x)+'</button>').join('')+'</div>'
+ +(done?'<div class="feedback"><b>'+(done.correct?'Bonne réponse.':'Une notion à revoir.')+'</b> '+esc(q.explanation)+'</div><div class="actions">'+btn('Question suivante','practiceNext')+'</div>'
+ :'<div class="actions">'+btn('Voir un indice','practiceHint','secondary')+btn('Faire une pause','nav:matieres','outline')+'</div>'
+ +(c.hintShown?'<div class="feedback">'+esc(q.hint)+'</div>':'')));
+}
+function practiceEnd(){
+ const c=state.practiceChallenge;if(!c)return head('Mes défis','Bilan')+card(btn('Retour aux matières','nav:matieres'));
+ const sum=PracticeEngine.summary(c);
+ return head('Défi terminé','Ce que tu as retrouvé','La mémoire progresse grâce à plusieurs essais espacés.')
+ +card('<h2>'+sum.correct+' réponse(s) sur '+sum.total+'</h2><p>'+sum.independent+' sans indice, '+sum.assisted+' avec indice.</p>'
+ +'<p class="muted">Tu retrouveras d’autres exemples de cette notion plus tard.</p><div class="actions">'+btn('Nouvelle série','practiceReset')+btn('Retour aux matières','nav:matieres','outline')+'</div>');
+}
+function finishPractice(){
+ const c=state.practiceChallenge;if(!c?.finished||c.recorded)return;
+ const result=PracticeEngine.summary(c);
+ Engine.recordAttempt(state,c.topicId,{correct:result.autonomous,assisted:!result.autonomous,kind:'question',source:c.origin});
+ state.practiceHistory.push(...c.answers.map(a=>({...a,challengeTopicId:c.topicId})));
+ if(state.practiceHistory.length>1500)state.practiceHistory.splice(0,state.practiceHistory.length-1500);
+ c.recorded=true;
+ if(c.origin==='session'&&state.activeSession&&sessionStep()?.id===c.topicId){
+  const last=state.activeSession.cursor===state.activeSession.plan.length-1;
+  Engine.finishStep(state,'exercise',c.topicId);
+  if(last)lastSummary=state.sessions[state.sessions.length-1];
+ }
+ save();
+}
+function handlePractice(parts){
+ const action=parts[0],topic=findExercise(parts[1]);
+ if(action==='practiceStart'){
+  if(!topic||topic.type!=='practice')return;
+  let count=[3,5,8].includes(+parts[2])?+parts[2]:5;
+  if(source==='session')count=3;
+  state.practiceChallenge=PracticeEngine.create(state,topic.id,count,source,state.activeSession?.id||null);
+  save();render();return;
+ }
+ const c=state.practiceChallenge;if(!c)return;
+ if(action==='practiceHint'){c.hintShown=true;save();render();return}
+ if(action==='practiceAnswer'){if(PracticeEngine.answer(c,+parts[1])){save();render()}return}
+ if(action==='practiceNext'){
+  if(PracticeEngine.advance(c)){if(c.finished){finishPractice();route='practiceBilan'}save();render()}
+  return;
+ }
+ if(action==='practiceReset'){const id=c.topicId;state.practiceChallenge=null;source='libre';activeId=id;route='exercice';save();render();return}
+}
+
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
  +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
@@ -219,7 +281,7 @@ function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as
  +card('<h2>'+((lastSummary&&lastSummary.completed)||0)+' activité(s) réalisées</h2><p class="muted">Tu peux revenir quand tu en auras envie. Aucune absence n’est pénalisée.</p>'+btn('Retour à l’accueil','nav:accueil'))}
 function render(){
  const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
- matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd};
+ matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd};
  root.innerHTML=(pages[route]||home)();
  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
@@ -233,7 +295,7 @@ function finishCurrentStep(){
 }
 function submitAnswer(index){
  const e=findExercise(activeId);if(!e)return;
- if(e.type==='dictation'||e.type==='challenge')return;
+ if(e.type==='dictation'||e.type==='challenge'||e.type==='practice')return;
  const probing=mode==='probe',correct=index===(probing?e.probeAnswer:e.answer);
  const origin=source==='session'?'session':'libre';
  if(probing)questionHelped=true;
@@ -278,6 +340,7 @@ function handle(raw){
  }
  if(kind==='returnMain'){mode='question';route='exercice';render();return}
  if(kind.startsWith('challenge')){handleConjugation(p);return}
+ if(kind.startsWith('practice')){handlePractice(p);return}
  if(kind==='answer'){submitAnswer(Number(id));return}
  if(kind==='dictationListen'){const e=findExercise(id);if(e&&'speechSynthesis' in window){window.speechSynthesis.cancel();const msg=new SpeechSynthesisUtterance(e.text);msg.lang='fr-FR';msg.rate=0.85;window.speechSynthesis.speak(msg)}return}
  if(kind==='dictationCheck'){checkDictation();return}
