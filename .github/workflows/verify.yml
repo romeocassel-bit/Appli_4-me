@@ -7,6 +7,7 @@ on:
       - personnalisation-v6
       - release-candidate-v7
       - audit-maths-coaching-v8
+      - parcours-maths-v9
   pull_request:
 jobs:
   verification:
@@ -25,6 +26,7 @@ jobs:
           node --check practice-engine.js
           node --check personalization-engine.js
           node --check math-coach.js
+          node --check math-journey.js
           node --check dictation-engine.js
           node --check orthography-data.js
           node --check readings.js
