@@ -13,13 +13,16 @@ const exercises=[
 ];
 const readings=window.APP_READINGS||[];
 const orthography=window.ORTHOGRAPHY_DATA||{questions:[],dictations:[]};
-exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS);
+exercises.push(...orthography.questions,...orthography.dictations,...ConjugationEngine.TOPICS,...PracticeBank.TOPICS,...MathJourney.TOPICS);
 let stored=null,legacy=null;
 try{stored=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
 try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
 const state=Engine.normalizeState(stored,legacy);
 state.conjugationHistory=Array.isArray(stored?.conjugationHistory)?stored.conjugationHistory:[];
 state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHistory:[];
+state.mathJourneyHistory=Array.isArray(stored?.mathJourneyHistory)?stored.mathJourneyHistory:[];
+state.mathJourneyProgress=stored?.mathJourneyProgress&&typeof stored.mathJourneyProgress==='object'?stored.mathJourneyProgress:{};
+state.mathJourney=stored?.mathJourney&&MathJourney.TOPICS.some(t=>t.id===stored.mathJourney.topicId)?stored.mathJourney:null;
 const personalizationMigrated=PersonalizationEngine.hydrate(state,{conjugation:ConjugationEngine,practice:PracticeBank});
 state.practiceChallenge=stored?.practiceChallenge&&PracticeBank.TOPICS.some(t=>t.id===stored.practiceChallenge.topicId)?stored.practiceChallenge:null;
 state.challenge=stored?.challenge&&Array.isArray(stored.challenge.questions)&&ConjugationEngine.TOPICS.some(t=>t.id===stored.challenge.topicId)?stored.challenge:null;
@@ -46,7 +49,7 @@ function goSessionStep(){
  const step=sessionStep();
  if(!step){route='accueil';render();return}
  if(step.kind==='reading')openReading(step.id,'session');
- else { const c=findExercise(step.id);if(c?.type==='practice'&&state.practiceChallenge?.topicId===step.id&&state.practiceChallenge.sessionId===state.activeSession.id&&!state.practiceChallenge.finished){openExercise(step.id,'session');return}if(c?.type==='challenge'&&state.challenge?.topicId===step.id&&state.challenge.sessionId===state.activeSession.id&&!state.challenge.finished){openExercise(step.id,'session');return}openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));}
+ else { const c=findExercise(step.id);if(c?.type==='journey'&&state.mathJourney?.topicId===step.id&&state.mathJourney.sessionId===state.activeSession.id&&!state.mathJourney.finished){openExercise(step.id,'session');return}if(c?.type==='practice'&&state.practiceChallenge?.topicId===step.id&&state.practiceChallenge.sessionId===state.activeSession.id&&!state.practiceChallenge.finished){openExercise(step.id,'session');return}if(c?.type==='challenge'&&state.challenge?.topicId===step.id&&state.challenge.sessionId===state.activeSession.id&&!state.challenge.finished){openExercise(step.id,'session');return}openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));}
 }
 function sessionHome(){
  const session=state.activeSession;
@@ -108,6 +111,7 @@ function exercise(){
  if(e.type==='dictation')return dictationView(e);
  if(e.type==='challenge')return conjugationView(e);
  if(e.type==='practice')return practiceView(e);
+ if(e.type==='journey')return mathJourneyView(e);
  const probe=mode==='probe';
  return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
  +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
@@ -303,6 +307,74 @@ function handleMath(kind){
  }
 }
 
+
+function mathJourneyView(topic){
+ const c=state.mathJourney?.topicId===topic.id?state.mathJourney:null;
+ if(!c||c.finished){
+  const suggested=MathJourney.suggestedLevel(state,topic.id);
+  const labels=MathJourney.LEVELS;
+  return head('Maths · Parcours 4e',topic.topic,topic.subtitle)
+   +card('<p class="muted">Trois niveaux courts. Tu peux refaire chaque niveau ou passer à un autre.</p>'
+   +labels.map(level=>'<div class="journey-level"><b>'+esc(level.label)+'</b><p class="muted">'+esc(level.description)+'</p>'
+     +btn(level.id===suggested?'Commencer ici':'Essayer ce niveau','journeyStart:'+topic.id+':'+level.id,level.id===suggested?'':'secondary')+'</div>').join(''));
+ }
+ const q=MathJourney.current(c),done=c.answers.find(x=>x.atIndex===c.cursor);
+ if(!q)return head('Maths','Parcours terminé')+card(btn('Voir mon bilan','journeyNext'));
+ const level=MathJourney.LEVELS.find(x=>x.id===c.level);
+ return head('Maths · '+esc(level.label),topic.topic,'Étape '+(c.cursor+1)+' sur '+c.questions.length)
+ +card('<span class="pill">'+esc(level.label)+'</span>'
+ +(q.context?'<p class="muted">'+esc(q.context)+'</p>':'')
+ +'<h2>'+esc(q.question)+'</h2>'
+ +(done?'<div class="feedback">'+(done.skipped?'Tu pourras y revenir.':done.assisted?'Réponse retrouvée avec aide.':'Réponse trouvée sans aide.')
+    +'<p>'+esc(q.method)+'</p><p><b>Réponse : '+esc(q.expectedDisplay)+'</b></p></div><div class="actions">'+btn('Étape suivante','journeyNext')+'</div>'
+ :'<label class="field-label" for="journey-input">Ma réponse</label><input id="journey-input" type="text" inputmode="decimal" autocomplete="off" value="'+esc(c.draft||'')+'" placeholder="Nombre ou fraction (ex. 3/4)">'
+    +(c.feedback?'<div class="feedback" role="status">'+esc(c.feedback)+'</div>':'')
+    +(c.hintShown?'<p class="muted">Indice : '+esc(q.hint)+'</p>':'')
+    +'<div class="actions">'+btn('Vérifier','journeyCheck')+btn('Un indice','journeyHint','secondary')+btn('Passer','journeySkip','outline')+'</div><div class="actions">'+btn('Faire une pause','nav:matieres','outline')+'</div>'));
+}
+function journeyEnd(){
+ const c=state.mathJourney;if(!c)return home();
+ const summary=MathJourney.summary(c),topic=findExercise(c.topicId);
+ return head('Maths','Ton niveau est terminé','L’objectif est de comprendre la méthode, pas d’aller vite.')
+ +card('<h2>'+summary.correct+' réponses trouvées sur '+summary.total+'</h2><p>'+summary.autonomous+' sans aide · '+summary.helped+' avec aide · '+summary.skipped+' passée(s)</p>'
+ +'<p class="muted">'+(summary.successful?'Tu peux découvrir le niveau suivant.':'Tu peux refaire ce niveau avec de nouveaux nombres.')+'</p>'
+ +'<div class="actions">'+btn('Continuer le parcours','journeyReset')+btn('Retour aux matières','nav:matieres','outline')+'</div>');
+}
+function finishJourney(){
+ const c=state.mathJourney;if(!c?.finished||c.recorded)return;
+ const score=MathJourney.recordStage(state,c);
+ Engine.recordAttempt(state,c.topicId,{correct:score.successful,assisted:!score.successful,kind:'question',source:c.origin});
+ if(c.origin==='session'&&state.activeSession&&sessionStep()?.id===c.topicId){
+  const wasLast=state.activeSession.cursor===state.activeSession.plan.length-1;
+  Engine.finishStep(state,'exercise',c.topicId);
+  if(wasLast)lastSummary=state.sessions[state.sessions.length-1];
+ }
+ save();
+}
+function handleJourney(parts){
+ const kind=parts[0];
+ if(kind==='journeyStart'){
+  const topic=findExercise(parts[1]),level=parts[2];
+  if(topic?.type!=='journey')return;
+  state.mathJourney=MathJourney.create(state,topic.id,level,source,state.activeSession?.id||null);
+  save();render();return;
+ }
+ const c=state.mathJourney;if(!c)return;
+ if(kind==='journeyReset'){const id=c.topicId;state.mathJourney=null;activeId=id;source='libre';route='exercice';save();render();return}
+ if(c.finished)return;
+ if(kind==='journeyHint'){c.hintShown=true;c.feedback=MathJourney.current(c)?.hint||'';save();render();return}
+ if(kind==='journeyCheck'){
+  const input=document.getElementById('journey-input');if(input)c.draft=input.value;
+  const result=MathJourney.submit(c,c.draft);
+  if(!result.valid)c.feedback=result.reason;
+  save();render();return;
+ }
+ if(kind==='journeySkip'){MathJourney.submit(c,'',true);save();render();return}
+ if(kind==='journeyNext'){
+  if(MathJourney.advance(c)){if(c.finished){finishJourney();route='journeyBilan'}save();render()}return;
+ }
+}
+
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
  +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
@@ -330,7 +402,7 @@ function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as
  +card('<h2>'+((lastSummary&&lastSummary.completed)||0)+' activité(s) réalisées</h2><p class="muted">Tu peux revenir quand tu en auras envie. Aucune absence n’est pénalisée.</p>'+btn('Retour à l’accueil','nav:accueil'))}
 function render(){
  const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
- matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd};
+ matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd,journeyBilan:journeyEnd};
  root.innerHTML=(pages[route]||home)();
  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
@@ -344,7 +416,7 @@ function finishCurrentStep(){
 }
 function submitAnswer(index){
  const e=findExercise(activeId);if(!e)return;
- if(e.type==='dictation'||e.type==='challenge'||e.type==='practice')return;
+ if(e.type==='dictation'||e.type==='challenge'||e.type==='practice'||e.type==='journey')return;
  const probing=mode==='probe',correct=index===(probing?e.probeAnswer:e.answer);
  const origin=source==='session'?'session':'libre';
  if(probing)questionHelped=true;
@@ -389,6 +461,7 @@ function handle(raw){
  if(kind==='returnMain'){mode='question';route='exercice';render();return}
  if(kind.startsWith('challenge')){handleConjugation(p);return}
  if(kind.startsWith('practice')){handlePractice(p);return}
+ if(kind.startsWith('journey')){handleJourney(p);return}
  if(kind.startsWith('math')){handleMath(kind);return}
  if(kind==='answer'){submitAnswer(Number(id));return}
  if(kind==='dictationListen'){const e=findExercise(id);if(e&&'speechSynthesis' in window){window.speechSynthesis.cancel();const msg=new SpeechSynthesisUtterance(e.text);msg.lang='fr-FR';msg.rate=0.85;window.speechSynthesis.speak(msg)}return}
