@@ -44,4 +44,37 @@ engine.recordAttempt(s,'a',{correct:true,assisted:true,now:today});
 assert.equal(s.reviews.a.stage,0,'Une réussite avec aide ne suffit pas');
 engine.recordAttempt(s,'a',{correct:true,now:new Date(2026,9,23,12)});
 assert.equal(s.reviews.a.stage,1);
-console.log('Tests : moteurs, banque d’exercices, correction et budgets — OK');
+
+const conjugation=require('../conjugation-engine.js');
+assert.equal(conjugation.questionCount,336);
+for(const tense of ['present','imparfait','futur','passe']){
+ const items=conjugation.poolFor(tense);
+ assert.equal(items.length,84);
+ for(const q of items){
+  assert.equal(q.options.length,3);
+  assert.equal(new Set(q.options).size,3);
+  assert.equal(q.options[q.answer],q.correctForm);
+  assert.ok(q.question.includes('___'));
+ }
+}
+assert.equal(conjugation.getQuestion('cv:imparfait:voir:3').correctForm,'voyions');
+assert.equal(conjugation.getQuestion('cv:futur:voir:0').correctForm,'verrai');
+for(const topic of conjugation.TOPICS){
+ for(const count of [3,5,8]){
+  const challenge=conjugation.create({reviews:{},conjugationHistory:[]},topic.id,count);
+  assert.equal(challenge.questions.length,count);
+  assert.equal(new Set(challenge.questions).size,count);
+  if(topic.tense==='mixte')assert.ok(new Set(challenge.questions.map(id=>conjugation.getQuestion(id).tense)).size>=3);
+  for(let i=0;i<count;i++){
+   const q=conjugation.current(challenge);
+   const first=conjugation.answer(challenge,q.answer);
+   assert.equal(first.correct,true);
+   assert.equal(conjugation.answer(challenge,q.answer),null);
+   conjugation.advance(challenge);
+  }
+  assert.equal(conjugation.summary(challenge).autonomous,true);
+ }
+}
+const adapted=conjugation.create({reviews:{'ct:present':{stage:3}},conjugationHistory:[]},'ct:present',5);
+assert.equal(adapted.questions.length,5);
+console.log('Tests : mémorisation, dictées, budgets et 336 conjugaisons — OK');
