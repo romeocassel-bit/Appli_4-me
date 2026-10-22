@@ -186,7 +186,8 @@ function conjugationView(topic){
  const answered=challenge.answers.find(x=>x.atIndex===challenge.cursor);
  return head('Conjugaison',topic.topic,'Question '+(challenge.cursor+1)+' sur '+challenge.questions.length+' · '+q.tenseLabel)
  +card('<span class="pill">'+q.verb+' · '+q.tenseLabel+'</span><h2 style="margin-top:14px">'+esc(q.question)+'</h2>'
- +'<div class="choices">'+q.options.map((x,i)=>'<button class="choice" '+(answered?'disabled ':'')+'data-action="challengeAnswer:'+i+'">'+esc(x)+'</button>').join('')+'</div>'
+ +(challenge.level==='decouverte'&&!answered&&!challenge.showChoices?'<label class="field-label" for="conjugation-input">Écris la forme du verbe</label><input id="conjugation-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="'+esc(challenge.draft||'')+'" placeholder="Ex. : chantons ou avons chanté"><div class="actions">'+btn('Vérifier ma réponse','challengeWrite')+btn('Voir les propositions','challengeChoices','secondary')+'</div>':'<div class="choices">'+q.options.map((x,i)=>'<button class="choice" '+(answered?'disabled ':'')+'data-action="challengeAnswer:'+i+'">'+esc(x)+'</button>').join('')+'</div>')
+ +(challenge.feedback&&!answered?'<div class="feedback" role="status">'+esc(challenge.feedback)+'</div>':'')
  +(answered?'<div class="feedback"><b>'+(answered.correct?'Bonne réponse.':'À revoir.')+'</b> '+esc(q.why)+'</div><div class="actions">'+btn('Question suivante','challengeNext')+'</div>'
  :'<div class="actions">'+btn('Un indice','challengeHint','secondary')+btn('Faire une pause','nav:matieres','outline')+'</div>'
  +(challenge.hintShown?'<div class="feedback">'+esc(q.hint)+'</div>':''))
@@ -229,10 +230,18 @@ function handleConjugation(p){
   save();render();return;
  }
  const c=state.challenge;if(!c)return;
- if(kind==='challengeHint'){c.hintShown=true;save();render();return}
- if(kind==='challengeAnswer'){if(ConjugationEngine.answer(c,+p[1])){save();render()}return}
+ if(kind==='challengeHint'){c.hintShown=true;c.feedback=ConjugationEngine.current(c)?.hint||'';save();render();return}
+ if(kind==='challengeWrite'){
+  const field=document.getElementById('conjugation-input');if(field)c.draft=field.value.slice(0,100);
+  const result=ConjugationEngine.submitWritten(c,c.draft);
+  c.feedback=result.correct?'':result.reason;
+  if((c.wrongTries||0)>=2)c.showChoices=true;
+  save();render();return;
+ }
+ if(kind==='challengeChoices'){c.hintShown=true;c.showChoices=true;c.feedback='Choisis la forme qui convient.';save();render();return}
+ if(kind==='challengeAnswer'){if(ConjugationEngine.answer(c,+p[1])){c.feedback='';save();render()}return}
  if(kind==='challengeNext'){
-  if(ConjugationEngine.advance(c)){if(c.finished){completeConjugation();route='conjugaisonBilan'}save();render()}
+  if(ConjugationEngine.advance(c)){c.feedback='';if(c.finished){completeConjugation();route='conjugaisonBilan'}save();render()}
   return;
  }
  if(kind==='challengeReset'){const id=c.topicId;state.challenge=null;source='libre';activeId=id;route='exercice';save();render();return}
@@ -440,6 +449,8 @@ function render(){
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
  const input=document.getElementById('journey-input');
  if(input)input.addEventListener('input',()=>{if(state.mathJourney&&!state.mathJourney.finished){state.mathJourney.draft=input.value.slice(0,100);save()}});
+ const conjugationField=document.getElementById('conjugation-input');
+ if(conjugationField)conjugationField.addEventListener('input',()=>{if(state.challenge&&!state.challenge.finished){state.challenge.draft=conjugationField.value.slice(0,100);save()}});
 }
 function finishCurrentStep(){
  const step=sessionStep();if(!step){route='accueil';render();return}
