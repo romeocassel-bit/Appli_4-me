@@ -40,7 +40,7 @@ async function run(){
    assert.ok((await page.locator('#app').innerText()).includes('Choisis ton temps de conjugaison'));
    for(const tense of ['present','imparfait','futur','passe','mixte']){
     await page.locator('[data-action="exercise:ct:'+tense+'"]').click();
-    assert.ok((await page.locator('#app').innerText()).includes('Découverte'));
+    assert.ok((await page.locator('#app').innerText()).includes('Découverte'),'Conjugaison '+tense+': '+(await page.locator('#app').innerText()).slice(0,900));
     assert.ok((await page.locator('#app').innerText()).includes('Entraînement'));
     assert.ok((await page.locator('#app').innerText()).includes('Défi'));
     await page.locator('[data-nav="matieres"]').click();
