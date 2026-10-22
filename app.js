@@ -20,12 +20,12 @@ try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
 const state=Engine.normalizeState(stored,legacy);
 state.conjugationHistory=Array.isArray(stored?.conjugationHistory)?stored.conjugationHistory:[];
 state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHistory:[];
-PersonalizationEngine.hydrate(state,{conjugation:ConjugationEngine,practice:PracticeBank});
+const personalizationMigrated=PersonalizationEngine.hydrate(state,{conjugation:ConjugationEngine,practice:PracticeBank});
 state.practiceChallenge=stored?.practiceChallenge&&PracticeBank.TOPICS.some(t=>t.id===stored.practiceChallenge.topicId)?stored.practiceChallenge:null;
 state.challenge=stored?.challenge&&Array.isArray(stored.challenge.questions)&&ConjugationEngine.TOPICS.some(t=>t.id===stored.challenge.topicId)?stored.challenge:null;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch{saveError=true}};
 let saveError=false;
-if(!stored)save();
+if(!stored||personalizationMigrated)save();
 const root=document.getElementById('app');
 let route='accueil',activeId=null,mode='question',currentSubject='Français',readId=null;
 let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false,dictationResult=null,dictationText='';
@@ -271,6 +271,7 @@ function progress(){
  const detailed=PersonalizationEngine.report(state,[...ConjugationEngine.TOPICS,...PracticeBank.TOPICS]).filter(x=>x.attempts).slice(0,12);
  return head('Mon chemin','Mes progrès','On cherche à comprendre ce qui devient plus facile, sans comparaison.')
  +card('<div class="grid"><div><div class="eyebrow">Histoires découvertes</div><h1>'+summary.readings+'</h1></div><div><div class="eyebrow">Séances terminées</div><h1>'+summary.sessions+'</h1></div><div><div class="eyebrow">Réussites autonomes</div><h1>'+summary.independentSuccesses+'</h1></div><div><div class="eyebrow">Réussites avec aide</div><h1>'+summary.assistedSuccesses+'</h1></div></div>')
+ +card('<h2>Compétences travaillées</h2>'+(detailed.length?detailed.map(x=>'<div class="row"><div><b>'+esc(x.title)+'</b><div class="min">'+x.independent+' sans indice · '+x.errors+' erreurs'+(x.weak.length?' · À revoir : '+esc(x.weak.map(w=>w.label).join(', ')):'')+'</div></div><span class="pill">'+esc(x.status.label)+'</span></div>').join(''):'<p class="muted">Les compétences apparaîtront après tes premiers défis.</p>'))
  +card('<h2>Les notions en chemin</h2>'+exercises.filter(e=>state.reviews[e.id]).map(e=>{
  const r=state.reviews[e.id],label=r.stage>=3?'En consolidation':r.lastOutcome==='avec aide'?'Avec aide':'À retrouver';
  return '<div class="row"><p>'+esc(e.topic)+'</p><span class="pill">'+label+'</span></div>';
