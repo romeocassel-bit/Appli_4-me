@@ -591,7 +591,7 @@ function handle(raw){
  const p=raw.split(':'),kind=p[0],id=p[1];
  if(kind==='nav'){if(route==='texte')saveReadingBookmark();route=id;if(id==='fin'&&!lastSummary)lastSummary=state.sessions[state.sessions.length-1]||null;render();return}
  if(kind==='duration'){if(!state.activeSession && Engine.DURATIONS.includes(+id)){state.duration=+id;save()}render();return}
- if(kind==='start'){Engine.beginSession(state,activeExercises,readings);save();route='seance';render();return}
+ if(kind==='start'){Engine.beginSession(state,activeExercises.filter(e=>e.type!=='frenchPath'),readings);save();route='seance';render();return}
  if(kind==='resume'){route='seance';render();return}
  if(kind==='doStep'){goSessionStep();return}
  if(kind==='nextStep'){finishCurrentStep();return}
