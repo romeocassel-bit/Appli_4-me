@@ -2,7 +2,7 @@
 // Défis communs à l'orthographe et aux mathématiques.
 const PracticeEngine=(function createPractice(){
 "use strict";
-const Bank=typeof PracticeBank!=="undefined"?PracticeBank:null;
+const Bank=typeof PracticeBank!=="undefined"?PracticeBank:(typeof module!=="undefined"&&module.exports?require("./practice-bank.js"):null);
 function current(c){return c&&!c.finished?Bank.getQuestion(c.questions[c.cursor]):null}
 function create(state,topicId,count=5,origin="libre",sessionId=null){
  const topic=Bank.TOPICS.find(t=>t.id===topicId);if(!topic)return null;
