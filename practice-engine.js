@@ -17,7 +17,7 @@ function create(state,topicId,count=5,origin="libre",sessionId=null){
   const target=desired[Math.min(i,2)];
   const options=Bank.pool(topicId).filter(q=>!used.has(q.id));
   options.sort((a,b)=>{
-   const score=q=>Math.abs(q.difficulty-target)*15+(recent.has(q.id)?200+recent.get(q.id):0)+(topics.has(q.topicId)?(topic.mix?18:0):0);
+   const score=q=>Math.abs(q.difficulty-target)*15+(recent.has(q.id)?200+recent.get(q.id):0)+(topics.has(q.topicId)?(topic.mix?18:0):0)-(typeof PersonalizationEngine!=='undefined'?PersonalizationEngine.questionBias(state,topicId,q):0);
    return score(a)-score(b)||a.id.localeCompare(b.id);
   });
   const q=options[0];if(!q)break;
