@@ -110,7 +110,7 @@ function reader(){
  const t=findReading(readId);if(!t)return library();
  const vocab=t.words||[{term:t.word,definition:t.definition}];
  const regex=new RegExp('('+vocab.map(v=>v.term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');
- const paragraphs=t.text.split(/\\n\\s*\\n/);
+ const paragraphs=t.text.split(/\n\s*\n/);
  function paragraph(text,i){
   const parts=text.split(regex);
   const content=parts.map(part=>{
