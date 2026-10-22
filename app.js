@@ -29,6 +29,7 @@ if(!stored||personalizationMigrated)save();
 const root=document.getElementById('app');
 let route='accueil',activeId=null,mode='question',currentSubject='Français',readId=null;
 let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false,dictationResult=null,dictationText='';
+if(state.activeSession){route='accueil';}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const card=(inner,extra='')=>'<section class="card '+extra+'">'+inner+'</section>';
 const head=(k,title,sub='')=>'<div class="hero"><div class="eyebrow">'+esc(k)+'</div><h1>'+esc(title)+'</h1><p class="muted">'+esc(sub)+'</p></div>';
@@ -44,7 +45,7 @@ function goSessionStep(){
  const step=sessionStep();
  if(!step){route='accueil';render();return}
  if(step.kind==='reading')openReading(step.id,'session');
- else openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));
+ else { const c=findExercise(step.id);if(c?.type==='practice'&&state.practiceChallenge?.topicId===step.id&&state.practiceChallenge.sessionId===state.activeSession.id&&!state.practiceChallenge.finished){openExercise(step.id,'session');return}if(c?.type==='challenge'&&state.challenge?.topicId===step.id&&state.challenge.sessionId===state.activeSession.id&&!state.challenge.finished){openExercise(step.id,'session');return}openExercise(step.id,'session',Boolean(state.activeSession.assistedItems[step.id]));}
 }
 function sessionHome(){
  const session=state.activeSession;
@@ -124,10 +125,8 @@ function checkDictation(){
  const input=field.value;
  const result=DictationEngine.compare(e.text,input,e.rules||[]);
  if(!result.valid){const hint=document.getElementById('dictation-hint');if(hint)hint.textContent=result.reason;return}
- const previous=state.reviews[e.id]; 
  const wasAssisted=questionHelped||Boolean(source==='session'&&state.activeSession?.assistedItems[e.id]);
- const once=Boolean(previous&&previous.lastReviewed===Engine.localDay()&&state.history.some(h=>h.id===e.id&&h.at&&Engine.localDay(h.at)===Engine.localDay()));
- if(!once){Engine.recordAttempt(state,e.id,{correct:result.correct,assisted:wasAssisted,source:source==='session'?'session':'libre',kind:'question'});}
+ Engine.recordAttempt(state,e.id,{correct:result.correct,assisted:wasAssisted,source:source==='session'?'session':'libre',kind:'question'});
  if(!result.correct&&source==='session'&&state.activeSession)state.activeSession.assistedItems[e.id]=true;
  save();
  const details=result.errors.slice(0,12).map(e=>'<li><b>'+esc(e.expected||'Mot ajouté')+'</b> — '+esc(e.actual||'mot absent')+' : '+esc(e.explanation)+'</li>').join('');
@@ -307,7 +306,7 @@ function submitAnswer(index){
  const origin=source==='session'?'session':'libre';
  if(probing)questionHelped=true;
  Engine.recordAttempt(state,e.id,{correct,assisted:questionHelped,kind:probing?'probe':'question',source:origin});
- if(!correct && source==='session' && state.activeSession)state.activeSession.assistedItems[e.id]=true;
+ if(!correct){questionHelped=true;if(source==='session' && state.activeSession)state.activeSession.assistedItems[e.id]=true;}
  save();
  feedbackView={id:e.id,correct,message:(correct?(questionHelped?'Tu as réussi avec un indice. ':'Tu as réussi seule. '):'Cette réponse ne convient pas encore. ')+e.why,
  continue:source==='session'&&correct&&!probing,probing};
@@ -315,7 +314,7 @@ function submitAnswer(index){
 }
 function handle(raw){
  const p=raw.split(':'),kind=p[0],id=p[1];
- if(kind==='nav'){route=id;render();return}
+ if(kind==='nav'){route=id;if(id==='fin'&&!lastSummary)lastSummary=state.sessions[state.sessions.length-1]||null;render();return}
  if(kind==='duration'){if(!state.activeSession && Engine.DURATIONS.includes(+id)){state.duration=+id;save()}render();return}
  if(kind==='start'){Engine.beginSession(state,exercises,readings);save();route='seance';render();return}
  if(kind==='resume'){route='seance';render();return}
@@ -332,10 +331,9 @@ function handle(raw){
   if(source==='session'&&sessionStep()?.kind==='reading'&&sessionStep()?.id===id){
     // Lecture terminée : la prochaine étape est seulement proposée après réflexion.
     readingSessionCompleted=true;
-    const current=state.activeSession;
-    current.completed.push({kind:'reading',id,at:Date.now(),outcome:'complete'});
-    current.cursor++;
-    if(current.cursor>=current.plan.length){lastSummary=Engine.endSession(state,{partial:false});source='libre'}
+    const final=state.activeSession.cursor===state.activeSession.plan.length-1;
+    Engine.finishStep(state,'reading',id);
+    if(final){lastSummary=state.sessions[state.sessions.length-1];source='libre'}
   }
   save();readId=id;route='apreslecture';render();return;
  }
