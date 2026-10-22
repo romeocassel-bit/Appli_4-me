@@ -9,6 +9,7 @@ on:
       - audit-maths-coaching-v8
       - parcours-maths-v9
       - conjugaison-saisie-v10
+      - lecture-plaisir-v11
   pull_request:
 jobs:
   verification:
