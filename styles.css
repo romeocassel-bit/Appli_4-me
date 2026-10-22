@@ -5,3 +5,26 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .field-label{display:block;margin:20px 0 8px;font-weight:700}textarea{display:block;width:100%;border:1px solid #cccbdc;border-radius:12px;padding:14px;font:inherit;color:#273043;line-height:1.6;resize:vertical}textarea:focus-visible{outline:3px solid #897dcc;outline-offset:2px}.corrections{padding-left:20px;line-height:1.8}.corrections li{margin:8px 0}
+
+/* Vérification mobile et navigation clavier, sans modifier le style éditorial. */
+:root{color-scheme:light}
+button,.btn,.choice,.word{touch-action:manipulation}
+button:focus-visible,.choice:focus-visible,.word:focus-visible,textarea:focus-visible{outline:3px solid #5d5a96;outline-offset:3px}
+.bottom{z-index:10;padding-bottom:max(9px,env(safe-area-inset-bottom))}
+.bottom button{min-height:48px;border-radius:9px}
+.bottom button:focus-visible{background:#efeff8}
+.card,.row,.grid>*{min-width:0}
+.card,.feedback,.reader,.row,.muted{overflow-wrap:anywhere}
+.actions .btn{max-width:100%;white-space:normal}
+.choice:disabled{cursor:default;opacity:.9}
+@media(max-width:580px){
+ .layout{padding:0 14px calc(106px + env(safe-area-inset-bottom))}
+ .row{align-items:flex-start;flex-wrap:wrap}
+ .pill{display:inline-block;max-width:100%}
+ .bottom{border-radius:14px 14px 0 0}
+ .bottom button{font-size:19px}
+ .bottom button span{font-size:10px;line-height:1.2}
+ .actions .btn{flex:1 1 130px}
+ h1{font-size:clamp(26px,7vw,34px)}
+}
+@media(max-width:360px){.bottom button{font-size:16px}.bottom button span{font-size:9px}.layout{padding-left:11px;padding-right:11px}}
