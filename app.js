@@ -406,6 +406,8 @@ function render(){
  root.innerHTML=(pages[route]||home)();
  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
+ const input=document.getElementById('journey-input');
+ if(input)input.addEventListener('input',()=>{if(state.mathJourney&&!state.mathJourney.finished){state.mathJourney.draft=input.value.slice(0,100);save()}});
 }
 function finishCurrentStep(){
  const step=sessionStep();if(!step){route='accueil';render();return}
