@@ -99,7 +99,7 @@ function subjectPage(){return head('Mes matières',currentSubject,'À toi de cho
 function exercise(){
  const e=findExercise(activeId);if(!e)return subjects();
  if(e.type==='dictation')return dictationView(e);
- if(e.type==='challenge'){if(state.challenge&&state.challenge.topicId!==e.id)state.challenge=null;return conjugationView(e);}
+ if(e.type==='challenge')return conjugationView(e);
  const probe=mode==='probe';
  return head(e.subject,e.topic,probe?'Cette étape est une aide, pas un examen.':'Tu peux chercher à ton rythme.')
  +card('<h2>'+esc(probe?e.probe:e.question)+'</h2><div class="choices">'+(probe?e.probeOptions:e.options).map((t,i)=>'<button class="choice" data-action="answer:'+i+'">'+esc(t)+'</button>').join('')+'</div>'+btn('Arrêter ici',source==='session'?'nav:seance':'nav:matieres','outline'));
@@ -192,7 +192,7 @@ function handleConjugation(p){
   if(ConjugationEngine.advance(c)){if(c.finished){completeConjugation();route='conjugaisonBilan'}save();render()}
   return;
  }
- if(kind==='challengeReset'){state.challenge=null;source='libre';activeId='ct:present';route='matiere';currentSubject='Français';save();render();return}
+ if(kind==='challengeReset'){const id=c.topicId;state.challenge=null;source='libre';activeId=id;route='exercice';save();render();return}
 }
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
