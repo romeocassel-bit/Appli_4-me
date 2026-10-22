@@ -130,7 +130,7 @@ function subjectPage(){
  if(currentSubject==='Français'){
   return head('Mes matières','Français','Plusieurs exemples par notion et des mini-dictées.')
    +subjectSection('Orthographe','Accords, homophones et règles à retrouver.',items.filter(e=>e.type==='practice'))
-   +subjectSection('Conjugaison','Présent, imparfait, futur simple et passé composé.',items.filter(e=>e.type==='challenge'))
+   +subjectSection('Choisis ton temps de conjugaison','Présent, imparfait, futur simple ou passé composé. Tu peux aussi mélanger les temps.',items.filter(e=>e.type==='challenge'))
    +subjectSection('Mini-dictées','Une phrase complète à écouter puis à écrire.',items.filter(e=>e.type==='dictation'));
  }
  return head('Mes matières',currentSubject,'De courtes questions pour découvrir une notion.')
@@ -176,9 +176,10 @@ function checkDictation(){
 function conjugationView(topic){
  const challenge=state.challenge?.topicId===topic.id?state.challenge:null;
  if(!challenge||challenge.finished){
-  const choices=[3,5,8].map(n=>btn(n+' questions','challengeStart:'+topic.id+':'+n,n===5?'':'secondary')).join('');
-  return head('Conjugaison',topic.topic,'Choisis une série courte. Les phrases varient d’une séance à l’autre.')
-   +card('<span class="pill">Présent · Imparfait · Futur · Passé composé</span><h2 style="margin-top:14px">Combien de questions ?</h2><div class="actions">'+choices+'</div><p class="muted">Sans chronomètre. Tu peux interrompre et reprendre le défi.</p>');
+  const recommended=ConjugationEngine.recommendedLevel(state,topic.id);
+  const levels=ConjugationEngine.LEVELS.map(l=>'<div class="journey-level"><b>'+esc(l.label)+(l.key===recommended?' · conseillé':'')+'</b><p class="muted">'+esc(l.description)+'</p><div class="actions">'+[3,5,8].map(n=>btn(n+' questions','challengeStart:'+topic.id+':'+n+':'+l.key,n===5?'':'secondary')).join('')+'</div></div>').join('');
+  return head('Conjugaison',topic.topic,'Choisis ton niveau et la longueur du défi.')
+   +card('<p class="muted">Les trois niveaux sont accessibles librement. Aucun classement.</p>'+levels+'<p class="muted">Sans chronomètre, avec pause et reprise.</p>');
  }
  const q=ConjugationEngine.current(challenge);
  if(!q)return head('Conjugaison','Défi terminé')+card(btn('Voir mon bilan','challengeNext'));
@@ -223,7 +224,8 @@ function handleConjugation(p){
   if(!topic||topic.type!=='challenge')return;
   let count=[3,5,8].includes(+p[2])?+p[2]:5;
   if(source==='session')count=3;
-  state.challenge=ConjugationEngine.create(state,topic.id,count,source,state.activeSession?.id||null);
+  const level=ConjugationEngine.LEVELS.some(l=>l.key===p[3])?p[3]:'auto';
+  state.challenge=ConjugationEngine.create(state,topic.id,count,source,state.activeSession?.id||null,level);
   save();render();return;
  }
  const c=state.challenge;if(!c)return;
