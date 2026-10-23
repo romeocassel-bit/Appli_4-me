@@ -40,6 +40,9 @@ async function run(){
       text:getComputedStyle(firstBtn).color
     };
    });
+   assert.equal(await page.locator('.welcome h1').count(),1);
+   assert.equal(await page.locator('.feature-story').count(),1);
+   assert.equal(await page.locator('.choice-tile').count(),2);
    assert.equal(theme.rose,'#aa2b63');
    assert.equal(theme.blue,'#e9f5ff');
    assert.equal(theme.button,'rgb(170, 43, 99)');
@@ -47,6 +50,7 @@ async function run(){
    assert.ok(theme.hero.includes('linear-gradient'));
    assert.ok(theme.pageBg.includes('radial-gradient'));
    await page.locator('[data-nav="lecture"]').click();
+   assert.equal(await page.locator('.story-tile').count(),7);
    await page.locator('[data-action="read:s1"]').click();
    assert.ok(await page.locator('[data-reading-paragraph]').count()>=10);
    assert.equal(await page.locator('[data-action="readerSize"]').count(),1);
@@ -62,6 +66,7 @@ async function run(){
    assert.equal(await page.locator('.reader--grand').count(),1);
    assert.ok((await page.locator('[data-reading-paragraph]').count())>=10);
    await page.locator('[data-nav="matieres"]').click();
+   assert.equal(await page.locator('.subject-tile').count(),3);
    await page.locator('[data-action="subject:Maths"]').click();
    assert.equal(await page.locator('[data-action="exercise:m1"]').count(),0,'Ancien QCM isolé visible');
    assert.equal(await page.locator('[data-action="exercise:m2"]').count(),0,'Ancien QCM relatifs visible');
