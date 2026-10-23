@@ -219,3 +219,13 @@ input:focus-visible, .choice:focus-visible, .word:focus-visible,
 .reading-continue>.story-tile{max-width:560px}
 @media(max-width:580px){.story-tile-body{gap:6px}.favorite-btn{width:36px;height:36px;font-size:22px}.reader-context{align-items:flex-start;flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){.reading-progress>span{transition:none}}
+
+/* V16 — carnet personnel : pages et mots sans cloud ni jugement. */
+.notebook-intro{display:flex;gap:17px;align-items:center;padding:23px;border-radius:22px;background:linear-gradient(115deg,#fff0f8,#eaf5ff);border:1px solid #e8dce8}
+.notebook-intro>span{font-size:38px;color:#aa2b63}.notebook-intro h2{margin:0 0 6px}.notebook-intro p{margin:0;color:#566477}
+.notebook-tabs{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}.notebook-tabs a{display:inline-block;text-decoration:none;color:#2d608a;background:#e9f5ff;padding:11px 15px;border-radius:12px;font-weight:750}
+.notebook-section{margin:27px 0 36px;scroll-margin-top:25px}.notebook-section>h2{font-size:22px}
+#notebook-title{display:block;width:100%;min-height:47px;padding:12px 14px;font:inherit;background:#fff;color:#26344b;border:1px solid #b9cbd9;border-radius:12px}
+#notebook-title:focus-visible{outline:3px solid #2d608a;outline-offset:3px}
+.notebook-note-text{white-space:pre-wrap;line-height:1.7}.notebook-error{color:#aa2b63;font-weight:700}
+@media(max-width:580px){.notebook-intro{padding:17px}.notebook-intro>span{font-size:29px}.notebook-tabs a{flex:1;text-align:center;font-size:13px;padding:10px}}
