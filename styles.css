@@ -203,3 +203,19 @@ input:focus-visible, .choice:focus-visible, .word:focus-visible,
 .story-tile{grid-template-columns:99px minmax(0,1fr)}.story-tile-body{padding:14px}.subject-tile{padding:17px;gap:14px}.subject-symbol{width:52px;height:52px;font-size:24px}.subject-details strong{font-size:18px}
 .bottom{padding:9px 6px max(9px,env(safe-area-inset-bottom))}.bottom button span{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.choice-tile,.subject-tile{transition:none}.choice-tile:hover,.subject-tile:hover{transform:none}}
+
+/* V15 — progression de série, favoris et confort de lecture */
+.story-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
+.favorite-btn{display:grid;place-items:center;width:40px;height:40px;flex:none;border:1px solid #e8d4e1;border-radius:12px;background:#fff6fa;color:#a52a61;font-size:25px;line-height:1}
+.favorite-btn.is-favorite{background:#ffe3f0;border-color:#ca83a6}
+.reading-progress{height:7px;background:#e4edf7;border-radius:20px;overflow:hidden;width:100%}
+.reading-progress>span{display:block;height:100%;border-radius:20px;background:#aa2b63;transition:width .16s ease}
+.series-progress{margin:14px 0 18px;height:9px}
+.episode-strip{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:19px}
+.episode-chip{width:44px;height:44px;border-radius:14px;background:#fff;border:1px solid #c5d9e8;color:#2d608a;font-weight:800}
+.episode-chip.read{background:#e9f5ff;border-color:#2d608a}
+.reader-context{display:flex;align-items:center;gap:12px;justify-content:space-between;margin:12px 0}
+.reader-progress{margin:10px 0 16px;height:8px}
+.reading-continue>.story-tile{max-width:560px}
+@media(max-width:580px){.story-tile-body{gap:6px}.favorite-btn{width:36px;height:36px;font-size:22px}.reader-context{align-items:flex-start;flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.reading-progress>span{transition:none}}
