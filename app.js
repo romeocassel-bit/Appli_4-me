@@ -26,6 +26,7 @@ state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHist
 state.mathJourneyHistory=Array.isArray(stored?.mathJourneyHistory)?stored.mathJourneyHistory:[];
 state.mathJourneyProgress=stored?.mathJourneyProgress&&typeof stored.mathJourneyProgress==='object'?stored.mathJourneyProgress:{};
 state.mathJourney=stored?.mathJourney&&MathJourney.TOPICS.some(t=>t.id===stored.mathJourney.topicId)?stored.mathJourney:null;
+state.notebook=NotebookEngine.hydrate(stored?.notebook);
 state.readingFavorites=Array.isArray(stored?.readingFavorites)?stored.readingFavorites.filter(id=>readings.some(r=>r.id===id)):[];
 state.readingBookmarks=stored?.readingBookmarks&&typeof stored.readingBookmarks==='object'?stored.readingBookmarks:{};
 state.frenchPathHistory=Array.isArray(stored?.frenchPathHistory)?stored.frenchPathHistory:[];
@@ -39,6 +40,7 @@ let saveError=false;
 if(!stored||personalizationMigrated)save();
 const root=document.getElementById('app');
 let route='accueil',activeId=null,mode='question',currentSubject='Français',readId=null;
+let notebookEditId=null,notebookError='';
 let mathInput='',mathFeedback=null,mathMistakes=0,mathPrereq=null,mathShowChoices=false;
 let source='libre',questionHelped=false,lastSummary=null,feedbackView=null,readingSessionCompleted=false,dictationResult=null,dictationText='';
 if(state.activeSession){route='accueil';}
@@ -553,6 +555,42 @@ function handleFrench(parts){
  }
 }
 
+function notebook(){
+ const notes=[...state.notebook.notes].sort((a,b)=>b.updated-a.updated);
+ const kept=readings.filter(r=>state.readingFavorites.includes(r.id));
+ const pieces=state.frenchPathHistory.filter(x=>x.written).length;
+ return head('MON PETIT MONDE','Mon carnet','Mes mots, mes histoires et mes idées. Tout reste sur cet appareil.')
+ +'<section class="notebook-intro"><span aria-hidden="true">✎</span><div><h2>Un endroit rien qu’à toi</h2><p>Tu peux écrire, modifier et supprimer tes pages. Personne ne les reçoit automatiquement.</p></div></section>'
+ +'<div class="notebook-tabs"><a href="#carnet-pages">Mes pages</a><a href="#carnet-mots">Mes mots</a><a href="#carnet-histoires">Mes histoires</a></div>'
+ +'<section id="carnet-pages" class="notebook-section"><div class="row"><h2>Mes pages</h2><span class="pill">'+notes.length+' page(s)</span></div>'
+ +card('<h3>'+(notebookEditId?'Modifier ma page':'Une nouvelle page')+'</h3><label class="field-label" for="notebook-title">Mon titre</label><input id="notebook-title" maxlength="100" placeholder="Un titre qui me ressemble…" value="'+esc(notes.find(n=>n.id===notebookEditId)?.title||'')+'"><label class="field-label" for="notebook-text">Mes idées</label><textarea id="notebook-text" rows="5" maxlength="3500" placeholder="Une scène, un souvenir, une idée, quelques phrases…">'+esc(notes.find(n=>n.id===notebookEditId)?.text||'')+'</textarea><p class="muted">Sans note ni correction automatique. Ton texte est privé sur ce navigateur.</p>'+'<p id="notebook-error" class="notebook-error" role="status">'+esc(notebookError)+'</p>'+'<div class="actions">'+btn(notebookEditId?'Enregistrer les modifications':'Garder cette page','notebookSave')+(notebookEditId?btn('Annuler','notebookCancel','outline'):'')+'</div>')
+ +(notes.length?notes.map(n=>card('<div class="row"><div><h3>'+esc(n.title)+'</h3><p class="notebook-note-text">'+esc(n.text)+'</p></div></div><div class="actions">'+btn('Modifier','notebookEdit:'+n.id,'secondary')+btn('Supprimer','notebookDelete:'+n.id,'outline')+'</div>')).join(''):'<p class="muted">Ton carnet est encore vierge. Tu peux y déposer une première idée.</p>')
+ +'</section><section id="carnet-mots" class="notebook-section"><div class="row"><h2>Mes mots préférés</h2><span class="pill">'+state.notebook.words.length+' mot(s)</span></div><p class="muted">Touche un mot souligné pendant une lecture, puis choisis « Garder ce mot ».</p>'
+ +(state.notebook.words.length?state.notebook.words.map(x=>card('<h3>'+esc(x.term)+'</h3><p>'+esc(x.definition)+'</p><div class="actions">'+btn('Retirer ce mot','notebookRemoveWord:'+encodeURIComponent(x.key),'outline')+'</div>')).join(''):'<p class="muted">Aucun mot conservé pour le moment.</p>')
+ +'</section><section id="carnet-histoires" class="notebook-section"><div class="row"><h2>Mes histoires favorites</h2><span class="pill">'+kept.length+' histoire(s)</span></div>'
+ +(kept.length?kept.map(r=>card('<h3>'+esc(r.title)+'</h3><div class="actions">'+btn('Lire cette histoire','read:'+r.id,'secondary')+'</div>')).join(''):'<p class="muted">Dans la bibliothèque, touche le cœur d’une histoire pour la retrouver ici.</p>')
+  +card('<h3>Mes essais d’écriture</h3><p class="muted">'+pieces+' activité(s) d’écriture terminée(s) dans les parcours de français.</p><p class="muted">Les textes des exercices ne sont pas copiés automatiquement dans le carnet. Tu peux recopier ici ceux que tu souhaites garder.</p>')
+ +'</section>';
+}
+function handleNotebook(parts){
+ const kind=parts[0],id=parts.slice(1).join(':');
+ if(kind==='notebookCancel'){notebookEditId=null;notebookError='';render();return}
+ if(kind==='notebookEdit'){if(state.notebook.notes.some(x=>x.id===id)){notebookEditId=id;notebookError='';route='carnet';render();document.getElementById('notebook-title')?.focus()}return}
+ if(kind==='notebookDelete'){if(state.notebook.notes.some(x=>x.id===id)){notebookEditId=id;notebookError='';route='carnetSuppression';render()}return}
+ if(kind==='notebookConfirmDelete'){if(NotebookEngine.removeNote(state.notebook,id)){notebookEditId=null;save()}route='carnet';render();return}
+ if(kind==='notebookNoDelete'){route='carnet';render();return}
+ if(kind==='notebookRemoveWord'){const key=decodeURIComponent(id);state.notebook.words=state.notebook.words.filter(x=>x.key!==key);save();render();return}
+ if(kind==='notebookSave'){
+  const title=document.getElementById('notebook-title')?.value||'',body=document.getElementById('notebook-text')?.value||'';
+  const r=NotebookEngine.saveNote(state.notebook,notebookEditId,title,body);
+  if(!r.ok){notebookError=r.reason;const el=document.getElementById('notebook-error');if(el)el.textContent=notebookError;else alert(notebookError);return}
+  notebookEditId=null;notebookError='';save();render();return
+ }
+}
+function notebookDeleteView(){
+ return head('MON CARNET','Supprimer cette page ?','Cette suppression ne pourra pas être annulée.')
+ +card('<p>Veux-tu vraiment supprimer cette page de ton carnet ?</p><div class="actions">'+btn('Non, la conserver','notebookNoDelete','secondary')+btn('Oui, supprimer','notebookConfirmDelete:'+esc(notebookEditId||''),'outline')+'</div>');
+}
 function revisions(){
  const list=due();return head('Mémoire','Ce qui revient aujourd’hui','Les rappels sont espacés. Pas de séance à rattraper.')
  +(list.length?list.map(e=>card('<div class="row"><div><h3>'+esc(e.topic)+'</h3><div class="min">'+esc(e.subject)+'</div></div>'+btn('Revoir','exercise:'+e.id)+'</div>')).join('')
@@ -580,7 +618,7 @@ function endView(){return head('Pour aujourd’hui','C’est déjà bien','Tu as
  +card('<h2>'+((lastSummary&&lastSummary.completed)||0)+' activité(s) réalisées</h2><p class="muted">Tu peux revenir quand tu en auras envie. Aucune absence n’est pénalisée.</p>'+btn('Retour à l’accueil','nav:accueil'))}
 function render(){
  const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
- matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd,journeyBilan:journeyEnd,frenchBilan:frenchEnd,lexique:frenchLexique,auteurs:frenchAuteurs};
+ matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,carnet:notebook,carnetSuppression:notebookDeleteView,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd,journeyBilan:journeyEnd,frenchBilan:frenchEnd,lexique:frenchLexique,auteurs:frenchAuteurs};
  root.innerHTML=(pages[route]||home)();
  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route||(b.dataset.nav==='matieres'&&['matiere','exercice','frenchBilan','lexique','auteurs','conjugaisonBilan','practiceBilan','journeyBilan'].includes(route))||(b.dataset.nav==='lecture'&&['texte','apreslecture','lecturequiz'].includes(route))));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
@@ -628,9 +666,11 @@ function handle(raw){
   else state.readerSettings.theme=state.readerSettings.theme==='doux'?'clair':'doux';
   save();render();restoreReadingBookmark();return;
  }
+ if(kind.startsWith('notebook')){handleNotebook(p);return}
  if(kind==='readingFavorite'){const set=new Set(state.readingFavorites||[]);if(set.has(id))set.delete(id);else set.add(id);state.readingFavorites=[...set];save();render();return}
  if(kind==='read'){openReading(id);return}
- if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
+ if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el){const saved=NotebookEngine.hasWord(state.notebook,w.term,id);el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'<div class="actions">'+btn(saved?'Retirer de mon carnet':'Garder ce mot','keepWord:'+id+':'+p[2],'secondary')+'</div></div>'}return}
+ if(kind==='keepWord'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)];if(w){const kept=NotebookEngine.toggleWord(state.notebook,w.term,w.definition,id);save();const el=document.getElementById('wordbox');if(el)el.innerHTML='<div class="feedback" role="status">'+(kept?'Mot conservé dans ton carnet.':'Mot retiré du carnet.')+'</div>'}return}
  if(kind==='readDone'){
   saveReadingBookmark();
   state.readingBookmarks[id]=0;
