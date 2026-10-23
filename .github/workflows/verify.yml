@@ -11,6 +11,7 @@ on:
       - conjugaison-saisie-v10
       - lecture-plaisir-v11
       - francais-parcours-v12
+      - palette-rose-bleu-v13
   pull_request:
 jobs:
   verification:
