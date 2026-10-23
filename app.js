@@ -83,12 +83,15 @@ function sessionHome(){
 function home(){
  const n=due().length;
  const suggestions=PersonalizationEngine.recommendations(state,[...ConjugationEngine.TOPICS,...PracticeBank.TOPICS]);
- return head('Un peu chaque jour','Une petite séance à ton rythme','Cinq, dix ou quinze minutes, sans chronomètre ni obligation.')
- +(state.activeSession?sessionHome():card('<div class="row"><div><div class="eyebrow">Ma séance</div><h2>Tu choisis le temps</h2></div><span class="pill">Sans chrono</span></div><div class="actions">'+[5,10,15].map(n=>btn(n+' min','duration:'+n,state.duration===n?'':'secondary')).join('')+'</div><p class="muted">Des rappels utiles, de petits défis et parfois une histoire.</p>'+btn('Commencer ma séance','start'),'highlight'))
- +card('<div class="item"><span class="symbol">▤</span><div><b>Une histoire à découvrir</b><div class="min">Fantastique, musique, créativité…</div></div></div><div class="actions">'+btn('Choisir une lecture','nav:lecture','secondary')+'</div>')
- +card('<div class="item"><span class="symbol">↻</span><div><b>À retrouver en mémoire</b><div class="min">'+(n?n+' notion(s) à revoir':'Rien d’urgent aujourd’hui')+'</div></div></div><div class="actions">'+btn('Voir les rappels','nav:revisions','outline')+'</div>')
- +(suggestions.length?card('<h2>Des idées pour progresser</h2>'+suggestions.map(x=>'<div class="row"><div><b>'+esc(x.title)+'</b><div class="min">'+esc(x.reason)+'</div></div>'+btn('Revoir','exercise:'+x.id,'secondary')).join('<hr>')):'')
- +'<p class="muted">Pas de retard à rattraper si tu fais une pause.</p>'+actionRow();
+ const next=readings.find(r=>state.readingBookmarks?.[r.id]>0)||readings.find(r=>!state.reading.some(x=>x.id===r.id))||readings[0];
+ const bk=state.readingBookmarks?.[next.id]||0;
+ return '<section class="welcome"><span class="welcome-kicker">TON PETIT UNIVERS ✦</span><h1>Un petit moment <em>pour toi.</em></h1><p>Une histoire, une découverte, ou juste cinq minutes pour progresser. C’est toi qui choisis.</p><span class="welcome-star" aria-hidden="true">✦</span></section>'
+ +'<section class="feature-story"><div class="feature-art" aria-hidden="true"><div class="art-moon"></div><div class="art-book"></div><span class="art-star">✦</span></div><div class="feature-info"><span class="eyebrow">'+(bk?'TA LECTURE EN COURS':'UNE HISTOIRE POUR TOI')+'</span><h2>'+esc(next.title)+'</h2><p class="muted">'+(next.seriesId?'Académie Solstice · Épisode '+next.episode:'Une histoire à découvrir')+' · Environ '+next.time+' min</p>'+btn(bk?'Reprendre mon histoire':'Ouvrir mon histoire','read:'+next.id)+'</div></section>'
+ +'<section class="home-choices"><h2>Qu’est-ce qui te tente ?</h2><div class="home-choice-grid"><button class="choice-tile tile-read" data-action="nav:lecture"><span class="tile-symbol" aria-hidden="true">☾</span><strong>M’évader</strong><span>Histoires et découvertes</span></button><button class="choice-tile tile-study" data-action="nav:matieres"><span class="tile-symbol" aria-hidden="true">✎</span><strong>M’entraîner</strong><span>Français, maths et défis</span></button></div></section>'
+ +(state.activeSession?sessionHome():card('<div class="row"><div><span class="eyebrow">À MON RYTHME</span><h2>Ma petite séance</h2><p class="muted">Un parcours sans chrono, sans pression.</p></div><span class="pill">À ton rythme</span></div><div class="actions">'+[5,10,15].map(x=>btn(x+' min','duration:'+x,state.duration===x?'':'secondary')).join('')+'</div><div class="actions">'+btn('Commencer ma séance','start')+'</div>','session-panel'))
+ +'<section class="small-discoveries"><div class="mini-discovery"><span aria-hidden="true">✧</span><div><strong>Une petite découverte</strong><p>« Le vent chuchotait. » Une personnification à retrouver.</p></div>'+btn('Explorer','exercise:fp-figures','secondary')+'</div><div class="mini-discovery"><span aria-hidden="true">↻</span><div><strong>À retrouver en douceur</strong><p>'+(n?n+' notion(s) à revoir aujourd’hui.':'Rien d’urgent aujourd’hui.')+'</p></div>'+btn('Mes rappels','nav:revisions','secondary')+'</div></section>'
+ +(suggestions.length?card('<h2>Des idées pour progresser</h2>'+suggestions.slice(0,2).map(x=>'<div class="row"><div><b>'+esc(x.title)+'</b><div class="min">'+esc(x.reason)+'</div></div>'+btn('Essayer','exercise:'+x.id,'secondary')+'</div>').join('')):'')
+ +'<p class="muted home-footnote">Reviens quand tu veux. Il n’y a rien à rattraper.</p>'+actionRow();
 }
 function sessionView(){
  const sess=state.activeSession;
@@ -100,13 +103,16 @@ function sessionView(){
  +card('<span class="pill">'+(step.kind==='reading'?'Lecture plaisir':step.source==='review'?'Rappel mémoire':'Petit défi')+'</span><h2 style="margin-top:14px">'+esc(item.title||item.topic)+'</h2><p class="muted">'+(step.kind==='reading'?'Un moment de lecture, sans question obligatoire.':esc(item.subject)+' · Environ '+(item.minutes||2)+' min')+'</p>'+btn('C’est parti','doStep')+' '+btn('Arrêter ici','endSession','outline'),'highlight');
 }
 function library(){
- const series=readings.filter(r=>r.seriesId==='solstice');
- const rest=readings.filter(r=>r.seriesId!=='solstice');
- function entry(r){const visited=state.reading.some(x=>x.id===r.id);const bookmark=state.readingBookmarks?.[r.id]||0;
- return card('<div class="row"><span class="pill">'+(r.seriesId?'Épisode '+r.episode+'/'+series.length:esc(r.genre))+'</span><span class="min">Environ '+r.time+' min</span></div><h2 style="margin-top:12px">'+esc(r.title)+'</h2>'+(bookmark?'<p class="muted">Marque-page enregistré · paragraphe '+(bookmark+1)+'</p>':'')+'<div class="actions">'+btn(bookmark?'Reprendre':visited?'Relire':'Découvrir','read:'+r.id)+'</div>')}
- return head('Bibliothèque','Et si tu avais envie de la suite ?','Aucun questionnaire obligatoire. Choisis ce qui te plaît.')
- +card('<h2>Les secrets de l’Académie Solstice</h2><p class="muted">Magie, amitié, musique et mystères légers.</p>','highlight')
- +series.map(entry).join('')+'<h2 style="margin-top:25px">D’autres histoires</h2>'+rest.map(entry).join('');
+ const series=readings.filter(r=>r.seriesId==='solstice'),rest=readings.filter(r=>r.seriesId!=='solstice');
+ function entry(r){
+ const visited=state.reading.some(x=>x.id===r.id),bookmark=state.readingBookmarks?.[r.id]||0;
+ return '<article class="story-tile"><div class="story-tile-art '+(r.seriesId?'solstice-art':'other-art')+'" aria-hidden="true"><span>'+(r.seriesId?'✦':r.genre==='Musique'?'♫':r.genre==='Découverte'?'☼':'✎')+'</span></div><div class="story-tile-body"><span class="pill">'+(r.seriesId?'Épisode '+r.episode+'/'+series.length:esc(r.genre))+'</span><h3>'+esc(r.title)+'</h3><p class="muted">Environ '+r.time+' min'+(bookmark?' · Paragraphe '+(bookmark+1):'')+'</p>'+btn(bookmark?'Reprendre':visited?'Relire':'Découvrir','read:'+r.id,'secondary')+'</div></article>';
+ }
+ const ongoing=readings.filter(r=>state.readingBookmarks?.[r.id]>0);
+ return head('TON COIN LECTURE','Des histoires à savourer','Aucune question obligatoire. Prends ton temps.')
+ +(ongoing.length?'<section class="library-section"><h2>À reprendre</h2><div class="story-grid">'+ongoing.map(entry).join('')+'</div></section>':'')
+ +'<section class="library-section"><h2>Les secrets de l’Académie Solstice</h2><p class="muted">Amitié, magie douce, musique et mystères.</p><div class="story-grid">'+series.map(entry).join('')+'</div></section>'
+ +'<section class="library-section"><h2>D’autres histoires</h2><div class="story-grid">'+rest.map(entry).join('')+'</div></section>';
 }
 function reader(){
  const t=findReading(readId);if(!t)return library();
@@ -143,8 +149,11 @@ function afterReading(id){
  +card('<h2>Et maintenant ?</h2><div class="actions">'+btn('Une question facultative','readingQuiz:'+id,'secondary')+btn('Terminer ici',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline')+'</div>');
 }
 function readingQuiz(){const t=findReading(readId);return head('Si tu en as envie','Une petite question','Tu peux aussi passer sans répondre.')+card('<h2>'+esc(t.question)+'</h2><div class="choices">'+t.options.map((x,i)=>'<button class="choice" data-action="readingAnswer:'+t.id+':'+i+'">'+esc(x)+'</button>').join('')+'</div>'+btn('Passer',readingSessionCompleted?(state.activeSession?'nav:seance':'nav:fin'):'nav:lecture','outline'))}
-function subjects(){return head('Mes matières','Choisis une matière','Des parcours progressifs et des défis à plusieurs questions.')
- +['Français','Maths','Histoire-géo'].map(subject=>card('<div class="row"><h2>'+esc(subject)+'</h2><span class="pill">'+activeExercises.filter(x=>x.subject===subject).length+' activités</span></div>'+btn('Explorer','subject:'+subject))).join('')}
+function subjects(){
+ const list=[['Français','Lire, écrire et apprivoiser les mots','✎','subject-french'],['Maths','Comprendre une étape après l’autre','◇','subject-maths'],['Histoire-géo','Explorer d’autres époques et lieux','◉','subject-history']];
+ return head('MON ATELIER','Choisis ce qui t’intéresse','Chaque activité se fait à ton rythme.')
+ +'<div class="subject-grid">'+list.map(([name,description,symbol,klass])=>'<button class="subject-tile '+klass+'" data-action="subject:'+name+'"><span class="subject-symbol" aria-hidden="true">'+symbol+'</span><span class="subject-details"><strong>'+name+'</strong><span>'+description+'</span><small>'+activeExercises.filter(x=>x.subject===name).length+' activités disponibles</small></span><span aria-hidden="true">↗</span></button>').join('')+'</div>';
+}
 function activityCard(e){
  const types={
   frenchPath:{name:'3 étapes',description:'Observer, s’entraîner, puis écrire quelques phrases.',action:'Découvrir le parcours'},
@@ -558,7 +567,7 @@ function render(){
  const pages={accueil:home,seance:sessionView,lecture:library,texte:reader,apreslecture:()=>afterReading(readId),lecturequiz:readingQuiz,
  matieres:subjects,matiere:subjectPage,exercice:exercise,revisions,progres:progress,resultat:resultView,fin:endView,conjugaisonBilan:conjugationEnd,practiceBilan:practiceEnd,journeyBilan:journeyEnd,frenchBilan:frenchEnd,lexique:frenchLexique,auteurs:frenchAuteurs};
  root.innerHTML=(pages[route]||home)();
- document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route));
+ document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.nav===route||(b.dataset.nav==='matieres'&&['matiere','exercice','frenchBilan','lexique','auteurs','conjugaisonBilan','practiceBilan','journeyBilan'].includes(route))||(b.dataset.nav==='lecture'&&['texte','apreslecture','lecturequiz'].includes(route))));
  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>handle(el.dataset.action)));
  const input=document.getElementById('journey-input');
  if(input)input.addEventListener('input',()=>{if(state.mathJourney&&!state.mathJourney.finished){state.mathJourney.draft=input.value.slice(0,100);save()}});
