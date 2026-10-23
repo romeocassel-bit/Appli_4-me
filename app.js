@@ -26,6 +26,7 @@ state.practiceHistory=Array.isArray(stored?.practiceHistory)?stored.practiceHist
 state.mathJourneyHistory=Array.isArray(stored?.mathJourneyHistory)?stored.mathJourneyHistory:[];
 state.mathJourneyProgress=stored?.mathJourneyProgress&&typeof stored.mathJourneyProgress==='object'?stored.mathJourneyProgress:{};
 state.mathJourney=stored?.mathJourney&&MathJourney.TOPICS.some(t=>t.id===stored.mathJourney.topicId)?stored.mathJourney:null;
+state.readingFavorites=Array.isArray(stored?.readingFavorites)?stored.readingFavorites.filter(id=>readings.some(r=>r.id===id)):[];
 state.readingBookmarks=stored?.readingBookmarks&&typeof stored.readingBookmarks==='object'?stored.readingBookmarks:{};
 state.frenchPathHistory=Array.isArray(stored?.frenchPathHistory)?stored.frenchPathHistory:[];
 state.frenchPath=stored?.frenchPath&&FrenchPaths.TOPICS.some(x=>x.id===stored.frenchPath.topicId)?stored.frenchPath:null;
@@ -65,7 +66,7 @@ function saveReadingBookmark(){
  const cutoff=Math.max(120,window.innerHeight*.36);
  let index=0;
  for(let i=0;i<paragraphs.length;i++)if(paragraphs[i].getBoundingClientRect().top<=cutoff)index=i;
- if(state.readingBookmarks[readId]!==index){state.readingBookmarks[readId]=index;save()}
+ if(state.readingBookmarks[readId]!==index){state.readingBookmarks[readId]=index;save();const progress=document.getElementById('reader-progress');if(progress){const pct=Math.round(100*index/paragraphs.length);progress.setAttribute('aria-valuenow',String(pct));const bar=progress.querySelector('span');if(bar)bar.style.width=pct+'%'}}
 }
 window.addEventListener('scroll',saveReadingBookmark,{passive:true});
 function goSessionStep(){
@@ -83,7 +84,7 @@ function sessionHome(){
 function home(){
  const n=due().length;
  const suggestions=PersonalizationEngine.recommendations(state,[...ConjugationEngine.TOPICS,...PracticeBank.TOPICS]);
- const next=readings.find(r=>state.readingBookmarks?.[r.id]>0)||readings.find(r=>!state.reading.some(x=>x.id===r.id))||readings[0];
+ const next=readings.find(r=>state.readingBookmarks?.[r.id]>0&&!state.reading.some(x=>x.id===r.id))||readings.find(r=>!state.reading.some(x=>x.id===r.id))||readings[0];
  const bk=state.readingBookmarks?.[next.id]||0;
  return '<section class="welcome"><span class="welcome-kicker">TON PETIT UNIVERS ✦</span><h1>Un petit moment <em>pour toi.</em></h1><p>Une histoire, une découverte, ou juste cinq minutes pour progresser. C’est toi qui choisis.</p><span class="welcome-star" aria-hidden="true">✦</span></section>'
  +'<section class="feature-story"><div class="feature-art" aria-hidden="true"><div class="art-moon"></div><div class="art-book"></div><span class="art-star">✦</span></div><div class="feature-info"><span class="eyebrow">'+(bk?'TA LECTURE EN COURS':'UNE HISTOIRE POUR TOI')+'</span><h2>'+esc(next.title)+'</h2><p class="muted">'+(next.seriesId?'Académie Solstice · Épisode '+next.episode:'Une histoire à découvrir')+' · Environ '+next.time+' min</p>'+btn(bk?'Reprendre mon histoire':'Ouvrir mon histoire','read:'+next.id)+'</div></section>'
@@ -102,7 +103,34 @@ function sessionView(){
  return head('Ma séance','Étape '+(sess.cursor+1)+' sur '+sess.plan.length,'Durée indicative : '+sess.duration+' min. Aucune limite de temps.')
  +card('<span class="pill">'+(step.kind==='reading'?'Lecture plaisir':step.source==='review'?'Rappel mémoire':'Petit défi')+'</span><h2 style="margin-top:14px">'+esc(item.title||item.topic)+'</h2><p class="muted">'+(step.kind==='reading'?'Un moment de lecture, sans question obligatoire.':esc(item.subject)+' · Environ '+(item.minutes||2)+' min')+'</p>'+btn('C’est parti','doStep')+' '+btn('Arrêter ici','endSession','outline'),'highlight');
 }
+function readingProgress(t){
+ const paragraphs=t.text.split(/\n\s*\n/).length;
+ const complete=state.reading.some(x=>x.id===t.id);
+ const position=complete?paragraphs:Math.max(0,Math.min(paragraphs-1,Number(state.readingBookmarks?.[t.id]||0)));
+ return {paragraphs,position,percent:Math.round(100*position/paragraphs),complete};
+}
 function library(){
+ const series=readings.filter(r=>r.seriesId==='solstice'),rest=readings.filter(r=>r.seriesId!=='solstice');
+ const fav=new Set(state.readingFavorites||[]);
+ const ongoing=readings.filter(r=>state.readingBookmarks?.[r.id]>0&&!state.reading.some(x=>x.id===r.id));
+ const active=ongoing[0];
+ function entry(r){
+  const p=readingProgress(r),favorite=fav.has(r.id),bookmark=state.readingBookmarks?.[r.id]||0;
+  return '<article class="story-tile"><div class="story-tile-art '+(r.seriesId?'solstice-art':'other-art')+'" aria-hidden="true"><span>'+(r.seriesId?'✦':r.genre==='Musique'?'♫':r.genre==='Découverte'?'☼':'✎')+'</span></div><div class="story-tile-body"><div class="story-meta"><span class="pill">'+(r.seriesId?'Épisode '+r.episode+'/'+series.length:esc(r.genre))+'</span><button class="favorite-btn'+(favorite?' is-favorite':'')+'" aria-label="'+(favorite?'Retirer des favoris : ':'Ajouter aux favoris : ')+esc(r.title)+'" aria-pressed="'+favorite+'" data-action="readingFavorite:'+r.id+'">'+(favorite?'♥':'♡')+'</button></div><h3>'+esc(r.title)+'</h3><p class="muted">Environ '+r.time+' min'+(p.complete?' · Lu':bookmark?' · En cours':'')+'</p>'+(bookmark&&!p.complete?'<div class="reading-progress" aria-label="Lecture reprise au paragraphe '+(bookmark+1)+' sur '+p.paragraphs+'"><span style="width:'+p.percent+'%"></span></div>':'')+btn(bookmark&&!p.complete?'Reprendre':p.complete?'Relire':'Découvrir','read:'+r.id,'secondary')+'</div></article>';
+ }
+ const preferred=readings.filter(r=>fav.has(r.id));
+ const next=series.find(r=>!state.reading.some(x=>x.id===r.id))||series[0];
+ const finished=series.filter(r=>state.reading.some(x=>x.id===r.id)).length;
+ return head('TON COIN LECTURE','Des histoires à savourer','Choisis une aventure, garde tes préférées et lis à ton rythme. Aucun questionnaire obligatoire.')
+ +(active?'<section class="library-section reading-continue"><span class="eyebrow">EN COURS</span><h2>Reprendre ma lecture</h2>'+entry(active)+'</section>':'')
+ +(preferred.length?'<section class="library-section"><h2>Mes histoires préférées</h2><div class="story-grid">'+preferred.filter(r=>r.id!==active?.id).map(entry).join('')+'</div></section>':'')
+ +'<section class="library-section"><span class="eyebrow">MA SÉRIE</span><h2>Les secrets de l’Académie Solstice</h2><p class="muted">Amitié, magie douce, musique et mystères. '+finished+' épisode(s) lu(s) sur '+series.length+'.</p><div class="reading-progress series-progress" aria-label="'+finished+' épisodes lus sur '+series.length+'"><span style="width:'+Math.round(100*finished/series.length)+'%"></span></div><div class="episode-strip">'+series.map(r=>'<button data-action="read:'+r.id+'" class="episode-chip'+(state.reading.some(x=>x.id===r.id)?' read':'')+'" aria-label="Épisode '+r.episode+' : '+esc(r.title)+'">'+r.episode+'</button>').join('')+'</div><div class="story-grid">'+series.filter(r=>r.id!==active?.id).map(entry).join('')+'</div>'+(active&&active.seriesId==='solstice'?'<p class="muted">Ton épisode en cours figure juste au-dessus.</p>':'')+'</section>'
+ +'<section class="library-section"><span class="eyebrow">D’AUTRES UNIVERS</span><h2>Histoires indépendantes</h2><div class="story-grid">'+rest.filter(r=>r.id!==active?.id).map(entry).join('')+'</div></section>';
+}
+function reader(){
+ const t=findReading(readId);if(!t)return library();
+ const vocab=t.words||[{term:t.word,definition:t.definition}];
+ const regex=new RegExp('('+vocab.map(v=>v.term.replace(/[.*+?^${}()|[\]\\]/g,'\\function library(){
  const series=readings.filter(r=>r.seriesId==='solstice'),rest=readings.filter(r=>r.seriesId!=='solstice');
  function entry(r){
  const visited=state.reading.some(x=>x.id===r.id),bookmark=state.readingBookmarks?.[r.id]||0;
@@ -139,6 +167,24 @@ function reader(){
  +'<div id="wordbox" aria-live="polite"></div><p class="muted">Ta position se sauvegarde automatiquement pendant la lecture.</p>'
  +'<div class="actions">'+btn('J’ai terminé','readDone:'+t.id)
  +btn('Reprendre plus tard',source==='session'?'nav:seance':'nav:lecture','outline')+'</div>');
+}
+')).join('|')+')','gi');
+ const paragraphs=t.text.split(/\n\s*\n/);
+ function paragraph(text,i){
+  const parts=text.split(regex);
+  const content=parts.map(part=>{const ix=vocab.findIndex(w=>w.term.toLocaleLowerCase('fr')===part.toLocaleLowerCase('fr'));return ix<0?esc(part):'<button class="word" data-action="define:'+t.id+':'+ix+'">'+esc(part)+'</button>'}).join('');
+  return '<p data-reading-paragraph="'+i+'">'+content+'</p>';
+ }
+ const size=state.readerSettings?.size==='grand'?'grand':'normal',theme=state.readerSettings?.theme==='doux'?'doux':'clair';
+ const mark=Math.max(0,Math.min(paragraphs.length-1,Number(state.readingBookmarks?.[t.id]||0)));
+ const percent=Math.round(100*mark/paragraphs.length);
+ return head(t.genre,t.title,'Lis tranquillement. Un mot souligné ? Touche-le pour découvrir son sens.')
+ +'<div class="reader-context"><span class="pill">'+(t.seriesId?'Académie Solstice · Épisode '+t.episode+'/4':esc(t.genre))+'</span><span class="muted">Environ '+t.time+' min</span></div>'
+ +'<div class="reading-progress reader-progress" id="reader-progress" role="progressbar" aria-label="Progression de lecture" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"><span style="width:'+percent+'%"></span></div>'
+ +card('<div class="reading-toolbar">'+btn(size==='grand'?'Texte normal':'Agrandir le texte','readerSize','secondary')+btn(theme==='doux'?'Fond clair':'Fond doux','readerTheme','secondary')+'</div>'
+ +(mark?'<p class="muted">Ton marque-page : paragraphe '+(mark+1)+' sur '+paragraphs.length+'.</p>':'')
+ +'<div class="reader reader--'+size+' reader--'+theme+'">'+paragraphs.map(paragraph).join('')+'</div><div id="wordbox" aria-live="polite"></div>'
+ +'<p class="muted">Ta place est enregistrée automatiquement sur cet appareil.</p><div class="actions">'+btn('J’ai terminé','readDone:'+t.id)+btn('Reprendre plus tard',source==='session'?'nav:seance':'nav:lecture','outline')+'</div>');
 }
 function afterReading(id){
  const t=findReading(id);if(!t)return library();
@@ -613,6 +659,7 @@ function handle(raw){
   else state.readerSettings.theme=state.readerSettings.theme==='doux'?'clair':'doux';
   save();render();restoreReadingBookmark();return;
  }
+ if(kind==='readingFavorite'){const set=new Set(state.readingFavorites||[]);if(set.has(id))set.delete(id);else set.add(id);state.readingFavorites=[...set];save();render();return}
  if(kind==='read'){openReading(id);return}
  if(kind==='define'){const r=findReading(id),w=(r?.words||[{term:r?.word,definition:r?.definition}])[Number(p[2]||0)],el=document.getElementById('wordbox');if(w&&el)el.innerHTML='<div class="feedback"><b>'+esc(w.term)+'</b> — '+esc(w.definition)+'</div>';return}
  if(kind==='readDone'){
