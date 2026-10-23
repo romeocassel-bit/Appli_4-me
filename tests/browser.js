@@ -28,6 +28,24 @@ async function run(){
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(url);await page.getByText('Commencer ma séance').waitFor();
    assert.equal(errors.length,0,'Homepage JS errors: '+errors.join('; '));
+   const theme=await page.evaluate(()=>{
+    const rootStyles=getComputedStyle(document.documentElement);
+    const firstBtn=document.querySelector('.btn');
+    return {
+      rose:rootStyles.getPropertyValue('--rose-primary').trim(),
+      blue:rootStyles.getPropertyValue('--blue-soft').trim(),
+      button:getComputedStyle(firstBtn).backgroundColor,
+      hero:getComputedStyle(document.querySelector('.hero')).backgroundImage,
+      pageBg:getComputedStyle(document.body).backgroundImage,
+      text:getComputedStyle(firstBtn).color
+    };
+   });
+   assert.equal(theme.rose,'#aa2b63');
+   assert.equal(theme.blue,'#e9f5ff');
+   assert.equal(theme.button,'rgb(170, 43, 99)');
+   assert.equal(theme.text,'rgb(255, 255, 255)');
+   assert.ok(theme.hero.includes('linear-gradient'));
+   assert.ok(theme.pageBg.includes('radial-gradient'));
    await page.locator('[data-nav="lecture"]').click();
    await page.locator('[data-action="read:s1"]').click();
    assert.ok(await page.locator('[data-reading-paragraph]').count()>=10);

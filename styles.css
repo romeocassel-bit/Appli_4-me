@@ -49,3 +49,96 @@ button:focus-visible,.choice:focus-visible,.word:focus-visible,textarea:focus-vi
 @media(max-width:580px){.reader{font-size:17px}.reader--grand{font-size:20px}.reading-toolbar .btn{flex:1 1 128px}}
 
 .reference-entry{border-top:1px solid #e9e7ee;padding:12px 0}.reference-entry:first-of-type{border-top:0}.reference-entry p{margin:5px 0}.writing-checklist{padding:15px;margin-top:15px;background:#f7f6fb;border-radius:13px}.writing-checklist p{margin:7px 0}.writing-saved{white-space:pre-wrap;background:#f7f6fb;padding:15px;border-radius:12px}
+
+
+/* V13 — thème rose poudré et bleu ciel : couleurs accessibles et sans changement fonctionnel. */
+:root {
+  --ink: #26344b;
+  --muted-ink: #566477;
+  --rose-primary: #aa2b63;
+  --rose-hover: #932153;
+  --rose-soft: #ffedf5;
+  --blue-primary: #2d608a;
+  --blue-soft: #e9f5ff;
+  --blue-panel: #f1f9ff;
+  --base: #f8fbff;
+  --line: #dce7f1;
+  --focus: #2d608a;
+  color: var(--ink);
+  background: var(--base);
+}
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 94% 2%, #e4f3ff 0, transparent 36%),
+    radial-gradient(ellipse at 0% 14%, #ffeaf3 0, transparent 42%),
+    var(--base);
+}
+.top { border-bottom-color: var(--line); }
+.brand { color: var(--ink); }
+.logo { background: var(--rose-primary); box-shadow: 0 3px 11px #aa2b6326; }
+.topnote, .muted, .min { color: var(--muted-ink); }
+.eyebrow { color: var(--rose-primary); }
+.hero {
+  margin: 16px 0 5px;
+  padding: 25px 23px 18px;
+  background: linear-gradient(116deg, #fff0f6 0%, #f4f6ff 58%, #e6f4ff 100%);
+  border: 1px solid #e9e5f1;
+  border-radius: 22px;
+}
+.hero h1 { color: var(--ink); }
+.card {
+  background: #fff;
+  border-color: var(--line);
+  box-shadow: 0 5px 17px #456c920a;
+}
+.card.highlight {
+  background: linear-gradient(120deg, #fff0f6, #edf7ff);
+  border-color: #e8d8e8;
+}
+.symbol {
+  background: var(--blue-soft);
+  color: var(--blue-primary);
+}
+.pill {
+  background: var(--rose-soft);
+  color: var(--rose-primary);
+}
+.btn {
+  background: var(--rose-primary);
+  color: #fff;
+}
+.btn:hover { background: var(--rose-hover); filter: none; }
+.btn.secondary { background: var(--blue-soft); color: var(--blue-primary); }
+.btn.secondary:hover { background: #d9edff; }
+.btn.outline { background: #fff; color: var(--rose-primary); border: 1px solid #d7bad0; }
+.btn.outline:hover { background: var(--rose-soft); }
+.choice { background: #fff; color: var(--ink); border-color: #cfdfea; }
+.choice:hover { background: var(--blue-panel); }
+.choice.selected { background: var(--rose-soft); border-color: var(--rose-primary); }
+.feedback { background: #eef7ff; border: 1px solid #d4e8f6; color: var(--ink); }
+.word { background: var(--blue-soft); border-bottom-color: var(--blue-primary); color: var(--ink); }
+.bottom { background: #fff; border-color: var(--line); box-shadow: 0 -3px 18px #3e69821a; }
+.bottom button { color: var(--muted-ink); }
+.bottom button.active { color: var(--rose-primary); background: var(--rose-soft); }
+.bottom button:focus-visible { background: var(--blue-soft); }
+.bar { background: #e5eef8; }
+.bar div { background: var(--blue-primary); }
+textarea, #journey-input, #math-input, #math-prereq, #conjugation-input {
+  border-color: #b9cbd9;
+  color: var(--ink);
+  background: #fff;
+}
+textarea:focus-visible, button:focus-visible, a:focus-visible,
+input:focus-visible, .choice:focus-visible, .word:focus-visible,
+#journey-input:focus-visible, #math-input:focus-visible,
+#math-prereq:focus-visible, #conjugation-input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+.reader--doux { background: #f0f8ff; color: var(--ink); }
+.reference-entry, .journey-level { border-top-color: var(--line); }
+.writing-checklist, .writing-saved { background: var(--blue-panel); }
+@media (max-width: 580px) {
+  .hero { padding: 20px 17px 15px; margin-top: 12px; border-radius: 19px; }
+}
