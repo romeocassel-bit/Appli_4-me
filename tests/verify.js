@@ -191,4 +191,21 @@ for(const topic of french.TOPICS){
   assert.equal(french.record(st,path).completed,true);
  }
 }
+const notebook=require('../notebook-engine.js');
+const book=notebook.hydrate(null);
+assert.deepEqual(book,{notes:[],words:[]});
+assert.equal(notebook.saveNote(book,null,'','').ok,false);
+const newPage=notebook.saveNote(book,null,'Ma scène','Une scène inventée',1700000000000);
+assert.equal(newPage.ok,true);
+assert.equal(book.notes.length,1);
+assert.equal(notebook.saveNote(book,newPage.id,'Nouveau titre','Texte modifié').ok,true);
+assert.equal(book.notes.length,1);
+assert.equal(book.notes[0].text,'Texte modifié');
+assert.equal(notebook.toggleWord(book,'métaphore','Une image littéraire','s1'),true);
+assert.equal(notebook.hasWord(book,'métaphore','s1'),true);
+assert.equal(notebook.toggleWord(book,'métaphore','Une image littéraire','s1'),false);
+assert.equal(book.words.length,0);
+assert.equal(notebook.removeNote(book,newPage.id),true);
+assert.equal(book.notes.length,0);
+assert.equal(notebook.hydrate({notes:[{id:'x',title:'Test',text:'Un essai'}],words:[]}).notes[0].text,'Un essai');
 console.log('V6 : personnalisation, migration, recommandations et 674 variantes vérifiées');
