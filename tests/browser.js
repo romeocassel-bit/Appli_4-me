@@ -35,7 +35,7 @@ async function run(){
       rose:rootStyles.getPropertyValue('--rose-primary').trim(),
       blue:rootStyles.getPropertyValue('--blue-soft').trim(),
       button:getComputedStyle(firstBtn).backgroundColor,
-      hero:getComputedStyle(document.querySelector('.hero')).backgroundImage,
+      hero:getComputedStyle(document.querySelector('.welcome, .hero')).backgroundImage,
       pageBg:getComputedStyle(document.body).backgroundImage,
       text:getComputedStyle(firstBtn).color
     };
