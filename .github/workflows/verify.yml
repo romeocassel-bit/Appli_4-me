@@ -12,6 +12,7 @@ on:
       - lecture-plaisir-v11
       - francais-parcours-v12
       - palette-rose-bleu-v13
+      - univers-immersif-v14
   pull_request:
 jobs:
   verification:
