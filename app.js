@@ -130,21 +130,6 @@ function library(){
 function reader(){
  const t=findReading(readId);if(!t)return library();
  const vocab=t.words||[{term:t.word,definition:t.definition}];
- const regex=new RegExp('('+vocab.map(v=>v.term.replace(/[.*+?^${}()|[\]\\]/g,'\\function library(){
- const series=readings.filter(r=>r.seriesId==='solstice'),rest=readings.filter(r=>r.seriesId!=='solstice');
- function entry(r){
- const visited=state.reading.some(x=>x.id===r.id),bookmark=state.readingBookmarks?.[r.id]||0;
- return '<article class="story-tile"><div class="story-tile-art '+(r.seriesId?'solstice-art':'other-art')+'" aria-hidden="true"><span>'+(r.seriesId?'✦':r.genre==='Musique'?'♫':r.genre==='Découverte'?'☼':'✎')+'</span></div><div class="story-tile-body"><span class="pill">'+(r.seriesId?'Épisode '+r.episode+'/'+series.length:esc(r.genre))+'</span><h3>'+esc(r.title)+'</h3><p class="muted">Environ '+r.time+' min'+(bookmark?' · Paragraphe '+(bookmark+1):'')+'</p>'+btn(bookmark?'Reprendre':visited?'Relire':'Découvrir','read:'+r.id,'secondary')+'</div></article>';
- }
- const ongoing=readings.filter(r=>state.readingBookmarks?.[r.id]>0);
- return head('TON COIN LECTURE','Des histoires à savourer','Aucune question obligatoire. Prends ton temps.')
- +(ongoing.length?'<section class="library-section"><h2>À reprendre</h2><div class="story-grid">'+ongoing.map(entry).join('')+'</div></section>':'')
- +'<section class="library-section"><h2>Les secrets de l’Académie Solstice</h2><p class="muted">Amitié, magie douce, musique et mystères.</p><div class="story-grid">'+series.map(entry).join('')+'</div></section>'
- +'<section class="library-section"><h2>D’autres histoires</h2><div class="story-grid">'+rest.map(entry).join('')+'</div></section>';
-}
-function reader(){
- const t=findReading(readId);if(!t)return library();
- const vocab=t.words||[{term:t.word,definition:t.definition}];
  const regex=new RegExp('('+vocab.map(v=>v.term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');
  const paragraphs=t.text.split(/\n\s*\n/);
  function paragraph(text,i){
@@ -158,7 +143,9 @@ function reader(){
  const size=state.readerSettings?.size==='grand'?'grand':'normal';
  const theme=state.readerSettings?.theme==='doux'?'doux':'clair';
  const bookmark=state.readingBookmarks?.[t.id]||0;
+ const progressPct=Math.round(100*Math.max(0,Math.min(paragraphs.length-1,Number(state.readingBookmarks?.[t.id]||0)))/paragraphs.length);
  return head(t.genre,t.title,'Lis à ton rythme. Les mots soulignés peuvent être expliqués.')
+ +'<div class="reader-context"><span class="pill">'+(t.seriesId?'Académie Solstice · Épisode '+t.episode+'/4':esc(t.genre))+'</span><span class="muted">Environ '+t.time+' min</span></div><div class="reading-progress reader-progress" id="reader-progress" role="progressbar" aria-label="Progression de lecture" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+progressPct+'"><span style="width:'+progressPct+'%"></span></div>'
  +card('<div class="reading-toolbar"><span class="pill">Environ '+t.time+' min</span>'
  +btn(size==='grand'?'Texte normal':'Agrandir le texte','readerSize','secondary')
  +btn(theme==='doux'?'Fond clair':'Fond doux','readerTheme','secondary')+'</div>'
@@ -167,24 +154,6 @@ function reader(){
  +'<div id="wordbox" aria-live="polite"></div><p class="muted">Ta position se sauvegarde automatiquement pendant la lecture.</p>'
  +'<div class="actions">'+btn('J’ai terminé','readDone:'+t.id)
  +btn('Reprendre plus tard',source==='session'?'nav:seance':'nav:lecture','outline')+'</div>');
-}
-')).join('|')+')','gi');
- const paragraphs=t.text.split(/\n\s*\n/);
- function paragraph(text,i){
-  const parts=text.split(regex);
-  const content=parts.map(part=>{const ix=vocab.findIndex(w=>w.term.toLocaleLowerCase('fr')===part.toLocaleLowerCase('fr'));return ix<0?esc(part):'<button class="word" data-action="define:'+t.id+':'+ix+'">'+esc(part)+'</button>'}).join('');
-  return '<p data-reading-paragraph="'+i+'">'+content+'</p>';
- }
- const size=state.readerSettings?.size==='grand'?'grand':'normal',theme=state.readerSettings?.theme==='doux'?'doux':'clair';
- const mark=Math.max(0,Math.min(paragraphs.length-1,Number(state.readingBookmarks?.[t.id]||0)));
- const percent=Math.round(100*mark/paragraphs.length);
- return head(t.genre,t.title,'Lis tranquillement. Un mot souligné ? Touche-le pour découvrir son sens.')
- +'<div class="reader-context"><span class="pill">'+(t.seriesId?'Académie Solstice · Épisode '+t.episode+'/4':esc(t.genre))+'</span><span class="muted">Environ '+t.time+' min</span></div>'
- +'<div class="reading-progress reader-progress" id="reader-progress" role="progressbar" aria-label="Progression de lecture" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"><span style="width:'+percent+'%"></span></div>'
- +card('<div class="reading-toolbar">'+btn(size==='grand'?'Texte normal':'Agrandir le texte','readerSize','secondary')+btn(theme==='doux'?'Fond clair':'Fond doux','readerTheme','secondary')+'</div>'
- +(mark?'<p class="muted">Ton marque-page : paragraphe '+(mark+1)+' sur '+paragraphs.length+'.</p>':'')
- +'<div class="reader reader--'+size+' reader--'+theme+'">'+paragraphs.map(paragraph).join('')+'</div><div id="wordbox" aria-live="polite"></div>'
- +'<p class="muted">Ta place est enregistrée automatiquement sur cet appareil.</p><div class="actions">'+btn('J’ai terminé','readDone:'+t.id)+btn('Reprendre plus tard',source==='session'?'nav:seance':'nav:lecture','outline')+'</div>');
 }
 function afterReading(id){
  const t=findReading(id);if(!t)return library();
