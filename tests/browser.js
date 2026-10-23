@@ -49,6 +49,25 @@ async function run(){
    assert.equal(theme.text,'rgb(255, 255, 255)');
    assert.ok(theme.hero.includes('linear-gradient'));
    assert.ok(theme.pageBg.includes('radial-gradient'));
+   await page.locator('[data-nav="carnet"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Mon carnet'));
+   await page.locator('#notebook-title').fill('Mon premier texte');
+   await page.locator('#notebook-text').fill('Il était une fois une fille qui inventait son propre univers.');
+   await page.locator('[data-action="notebookSave"]').click();
+   assert.equal(await page.locator('.notebook-note-text').count(),1);
+   await page.reload();
+   await page.locator('[data-nav="carnet"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Mon premier texte'));
+   await page.locator('[data-action^="notebookEdit:"]').click();
+   assert.equal(await page.locator('#notebook-title').inputValue(),'Mon premier texte');
+   await page.locator('#notebook-title').fill('Mon texte modifié');
+   await page.locator('[data-action="notebookSave"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Mon texte modifié'));
+   await page.locator('[data-action^="notebookDelete:"]').click();
+   assert.ok((await page.locator('#app').innerText()).includes('Supprimer cette page'));
+   await page.locator('[data-action^="notebookConfirmDelete:"]').click();
+   assert.equal(await page.locator('.notebook-note-text').count(),0);
+
    await page.locator('[data-nav="lecture"]').click();
    assert.equal(await page.locator('.story-tile').count(),7);
    await page.locator('[data-action="readingFavorite:s2"]').click();

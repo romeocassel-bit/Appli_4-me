@@ -14,6 +14,7 @@ on:
       - palette-rose-bleu-v13
       - univers-immersif-v14
       - bibliotheque-immersive-v15
+      - carnet-personnel-v16
   pull_request:
 jobs:
   verification:
@@ -34,6 +35,7 @@ jobs:
           node --check math-coach.js
           node --check math-journey.js
           node --check french-paths.js
+          node --check notebook-engine.js
           node --check dictation-engine.js
           node --check orthography-data.js
           node --check readings.js
