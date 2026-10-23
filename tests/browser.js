@@ -69,7 +69,7 @@ async function run(){
    await page.evaluate(()=>window.scrollBy(0,200));
    await page.waitForTimeout(100);
    await page.locator('[data-action="nav:lecture"]').click();
-   await page.locator('[data-action="read:s1"]').click();
+   await page.locator('.story-tile [data-action="read:s1"]').first().click();
    assert.equal(await page.locator('.reader--grand').count(),1);
    assert.ok((await page.locator('[data-reading-paragraph]').count())>=10);
    await page.locator('[data-nav="matieres"]').click();
