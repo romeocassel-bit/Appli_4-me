@@ -51,7 +51,7 @@ async function run(){
    assert.ok(theme.pageBg.includes('radial-gradient'));
    await page.locator('[data-nav="lecture"]').click();
    assert.equal(await page.locator('.story-tile').count(),7);
-   await page.locator('[data-action="read:s1"]').click();
+   await page.locator('[data-action="read:s1"]').first().click();
    assert.ok(await page.locator('[data-reading-paragraph]').count()>=10);
    assert.equal(await page.locator('[data-action="readerSize"]').count(),1);
    await page.locator('[data-action="readerSize"]').click();
